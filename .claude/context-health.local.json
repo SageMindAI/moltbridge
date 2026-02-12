@@ -1,0 +1,10 @@
+{
+  "instances": {
+    "claude-69009": {
+      "last_prompt_timestamp": "2026-02-12T02:06:17.376891+00:00",
+      "last_transcript_size": 1723294,
+      "response_count_since_examination": 11
+    }
+  },
+  "last_updated": "2026-02-12T02:14:59.505304+00:00"
+}

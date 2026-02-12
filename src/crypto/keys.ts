@@ -6,16 +6,16 @@
  */
 
 import * as ed from '@noble/ed25519';
-import { sha512 } from '@noble/hashes/sha512';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // noble/ed25519 v2 requires setting the SHA-512 hash
+// Use Node's built-in crypto instead of @noble/hashes
 ed.etc.sha512Sync = (...m) => {
-  const h = sha512.create();
+  const h = crypto.createHash('sha512');
   for (const msg of m) h.update(msg);
-  return h.digest();
+  return new Uint8Array(h.digest());
 };
 
 interface KeyPair {
