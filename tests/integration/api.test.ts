@@ -44,6 +44,10 @@ beforeEach(async () => {
   // Dynamic import to avoid triggering module load before mocks are established
   const { clearReplayCache } = await import('../../src/middleware/auth');
   clearReplayCache(); // Prevent replay-detection false positives between tests
+
+  // Reset rate limiter to prevent 429s across tests
+  const { limiter } = await import('../../src/middleware/ratelimit');
+  limiter.reset();
 });
 
 describe('GET /health', () => {
@@ -551,18 +555,39 @@ describe('Authenticated Endpoints', () => {
   describe('POST /report-outcome', () => {
     it('accepts valid outcome report', async () => {
       const keyPair = generateTestKeyPair();
+
+      // Mock auth to accept dawn-001
+      mockSession.run.mockImplementation(async (query: string) => {
+        if (query.includes('RETURN a.pubkey')) {
+          return {
+            records: [{
+              get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
+            }],
+          };
+        }
+        return { records: [] };
+      });
+
+      // First create the outcome record
+      const createBody = {
+        introduction_id: 'intro-123',
+        requester_id: 'dawn-001',
+        broker_id: 'broker-001',
+        target_id: 'target-001',
+      };
+      const createAuth = signRequest(keyPair, 'dawn-001', 'POST', '/outcomes', createBody);
+      await request(app)
+        .post('/outcomes')
+        .set('Authorization', createAuth)
+        .send(createBody);
+
+      // Now submit the report
       const body = {
         introduction_id: 'intro-123',
         status: 'successful',
-        evidence_type: 'target_confirmation',
+        evidence_type: 'requester_report',
       };
       const auth = signRequest(keyPair, 'dawn-001', 'POST', '/report-outcome', body);
-
-      mockSession.run.mockResolvedValue({
-        records: [{
-          get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
-        }],
-      });
 
       const res = await request(app)
         .post('/report-outcome')
@@ -571,15 +596,15 @@ describe('Authenticated Endpoints', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.outcome.introduction_id).toBe('intro-123');
-      expect(res.body.outcome.status).toBe('successful');
+      expect(res.body.outcome.reports_count).toBe(1);
     });
 
     it('rejects invalid status', async () => {
       const keyPair = generateTestKeyPair();
       const body = {
-        introduction_id: 'intro-123',
+        introduction_id: 'intro-456',
         status: 'invalid-status',
-        evidence_type: 'target_confirmation',
+        evidence_type: 'requester_report',
       };
       const auth = signRequest(keyPair, 'dawn-001', 'POST', '/report-outcome', body);
 

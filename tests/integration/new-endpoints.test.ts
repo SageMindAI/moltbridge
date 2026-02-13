@@ -63,6 +63,10 @@ beforeEach(async () => {
   // Dynamic import to avoid triggering module load before mocks are established
   const { clearReplayCache } = await import('../../src/middleware/auth');
   clearReplayCache(); // Prevent replay-detection false positives between tests
+
+  // Reset rate limiter to prevent 429s across tests
+  const { limiter } = await import('../../src/middleware/ratelimit');
+  limiter.reset();
 });
 
 // ========================

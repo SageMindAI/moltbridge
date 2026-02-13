@@ -19,6 +19,8 @@ import { IQSService, type IQSComponents } from '../services/iqs';
 import { WebhookService, type WebhookEventType } from '../services/webhooks';
 import { ConsentService, CONSENT_PURPOSES, CONSENT_DESCRIPTIONS, OMNISCIENCE_DISCLOSURE, type ConsentPurpose } from '../services/consent';
 import { PaymentService, type PaymentType } from '../services/payments';
+import { OutcomeService } from '../services/outcomes';
+import { rateLimit } from '../middleware/ratelimit';
 import type { AuthenticatedRequest } from '../types';
 
 const startTime = Date.now();
@@ -36,6 +38,7 @@ export function createRoutes(): Router {
   const webhookService = new WebhookService();
   const consentService = new ConsentService();
   const paymentService = new PaymentService();
+  const outcomeService = new OutcomeService();
 
   // Async route wrapper
   const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
@@ -47,7 +50,7 @@ export function createRoutes(): Router {
   // ========================
 
   // GET /health — Server + Neo4j connectivity
-  router.get('/health', asyncHandler(async (_req, res) => {
+  router.get('/health', rateLimit('public'), asyncHandler(async (_req, res) => {
     const neo4jConnected = await verifyConnectivity();
     const uptime = Math.round((Date.now() - startTime) / 1000);
 
@@ -61,13 +64,13 @@ export function createRoutes(): Router {
   }));
 
   // GET /.well-known/jwks.json — Public key for JWT verification
-  router.get('/.well-known/jwks.json', (_req, res) => {
+  router.get('/.well-known/jwks.json', rateLimit('public'), (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.json(getJWKS());
   });
 
   // POST /verify — Proof-of-AI challenge-response
-  router.post('/verify', (req, res) => {
+  router.post('/verify', rateLimit('public'), (req, res) => {
     const { challenge_id, proof_of_work } = req.body;
 
     // If no challenge_id provided, generate a new challenge
@@ -95,7 +98,7 @@ export function createRoutes(): Router {
   // POST /register — Register a new agent
   // Requires explicit acknowledgment of operational omniscience disclosure
   // and GDPR Article 22 consent for IQS automated decision-making.
-  router.post('/register', asyncHandler(async (req, res) => {
+  router.post('/register', rateLimit('public'), asyncHandler(async (req, res) => {
     const {
       agent_id, name, platform, pubkey,
       capabilities, clusters, a2a_endpoint,
@@ -182,7 +185,7 @@ export function createRoutes(): Router {
   // ========================
 
   // PUT /profile — Update agent profile
-  router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
+  router.put('/profile', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { capabilities, clusters, a2a_endpoint } = req.body;
 
@@ -196,7 +199,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /discover-broker — Find best broker to reach a person
-  router.post('/discover-broker', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/discover-broker', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { target_identifier, max_hops, max_results } = req.body;
 
@@ -230,7 +233,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /discover-capability — Find agents matching capability needs
-  router.post('/discover-capability', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/discover-capability', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const { capabilities, min_trust_score, max_results } = req.body;
 
     const validCaps = validateCapabilities(capabilities);
@@ -251,7 +254,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /credibility-packet — Generate credibility proof
-  router.get('/credibility-packet', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/credibility-packet', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const targetId = req.query.target as string;
     const brokerId = req.query.broker as string;
@@ -277,7 +280,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /attest — Submit attestation about another agent
-  router.post('/attest', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/attest', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const {
       target_agent_id,
@@ -363,33 +366,127 @@ export function createRoutes(): Router {
     }
   }));
 
-  // POST /report-outcome — Report introduction outcome
-  router.post('/report-outcome', requireAuth, asyncHandler(async (req, res) => {
+  // POST /outcomes — Create an outcome record for a new introduction
+  router.post('/outcomes', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
-    const { introduction_id, status, evidence_type } = req.body;
+    const { introduction_id, requester_id, broker_id, target_id } = req.body;
+
+    if (!introduction_id || !requester_id || !broker_id || !target_id) {
+      throw Errors.validationError('Missing introduction_id, requester_id, broker_id, or target_id');
+    }
+
+    try {
+      const outcome = outcomeService.createOutcome(introduction_id, requester_id, broker_id, target_id);
+      res.status(201).json({ outcome });
+    } catch (err: any) {
+      if (err.message.includes('already exists')) {
+        throw Errors.conflict(`Outcome already exists for introduction: ${introduction_id}`);
+      }
+      throw err;
+    }
+  }));
+
+  // POST /report-outcome — Submit a bilateral outcome report (Layer 1 verification)
+  router.post('/report-outcome', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { introduction_id, status, evidence_type, evidence_url } = req.body;
 
     if (!introduction_id || !status || !evidence_type) {
       throw Errors.validationError('Missing introduction_id, status, or evidence_type');
     }
-    if (!['attempted', 'acknowledged', 'successful', 'failed', 'disputed'].includes(status)) {
-      throw Errors.validationError('Invalid status');
+    if (!['successful', 'failed', 'no_response', 'disputed'].includes(status)) {
+      throw Errors.validationError('Invalid status. Must be: successful, failed, no_response, or disputed');
     }
-    if (!['target_confirmation', 'requester_report', 'timeout'].includes(evidence_type)) {
-      throw Errors.validationError('Invalid evidence_type');
+    if (!['requester_report', 'target_report', 'url_evidence', 'a2a_proof'].includes(evidence_type)) {
+      throw Errors.validationError('Invalid evidence_type. Must be: requester_report, target_report, url_evidence, or a2a_proof');
     }
 
-    // Phase 1: Store outcome report (simple — no complex verification flow yet)
-    // Full outcome verification protocol deferred to Phase 1.5
-    res.status(201).json({
-      outcome: {
+    // Determine reporter role from evidence_type
+    const roleMap: Record<string, 'requester' | 'target' | 'broker'> = {
+      'requester_report': 'requester',
+      'target_report': 'target',
+      'url_evidence': 'requester',
+      'a2a_proof': 'target',
+    };
+
+    try {
+      const outcome = outcomeService.submitReport({
         introduction_id,
+        reporter_agent_id: auth.agent_id,
+        reporter_role: roleMap[evidence_type],
         status,
         evidence_type,
-        submitted_by: auth.agent_id,
-        submitted_at: new Date().toISOString(),
-      },
-      message: 'Outcome recorded. Full outcome verification available in Phase 1.5.',
+        evidence_url,
+        reported_at: new Date().toISOString(),
+      });
+
+      // Emit webhook event
+      webhookService.emit({
+        id: `outcome-${Date.now()}`,
+        type: 'outcome_reported',
+        timestamp: new Date().toISOString(),
+        payload: {
+          introduction_id,
+          status: outcome.resolved_status,
+          verification_layer: outcome.verification_layer,
+          anomaly_flags: outcome.anomaly_flags,
+        },
+      });
+
+      res.status(201).json({
+        outcome: {
+          introduction_id: outcome.introduction_id,
+          resolved_status: outcome.resolved_status,
+          verification_layer: outcome.verification_layer,
+          timing_analysis: outcome.timing_analysis,
+          anomaly_flags: outcome.anomaly_flags,
+          reports_count: outcome.reports.length,
+        },
+      });
+    } catch (err: any) {
+      if (err.message.includes('not found')) {
+        throw Errors.validationError(`Outcome not found. Create one first via POST /outcomes.`);
+      }
+      if (err.message.includes('already reported')) {
+        throw Errors.conflict(err.message);
+      }
+      if (err.message.includes('not a party')) {
+        throw Errors.unauthorized('You are not a party to this introduction');
+      }
+      throw err;
+    }
+  }));
+
+  // GET /outcomes/pending — Get outcomes needing resolution (admin/review)
+  // NOTE: Must be registered BEFORE /outcomes/:id to avoid "pending" matching as :id
+  router.get('/outcomes/pending', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const pending = outcomeService.getPendingResolution();
+    res.json({
+      pending: pending.map(o => ({
+        introduction_id: o.introduction_id,
+        resolved_status: o.resolved_status,
+        verification_layer: o.verification_layer,
+        anomaly_flags: o.anomaly_flags,
+        reports_count: o.reports.length,
+      })),
+      count: pending.length,
     });
+  }));
+
+  // GET /outcomes/agent/:agentId/stats — Get agent outcome statistics
+  router.get('/outcomes/agent/:agentId/stats', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const stats = outcomeService.getAgentStats(req.params.agentId);
+    res.json({ stats });
+  }));
+
+  // GET /outcomes/:id — Get outcome by introduction ID
+  // NOTE: Must be AFTER specific routes (/pending, /agent/:id/stats)
+  router.get('/outcomes/:id', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const outcome = outcomeService.getOutcome(req.params.id);
+    if (!outcome) {
+      throw Errors.validationError(`Outcome not found: ${req.params.id}`);
+    }
+    res.json({ outcome });
   }));
 
   // ========================
@@ -397,7 +494,7 @@ export function createRoutes(): Router {
   // ========================
 
   // POST /iqs/evaluate — Evaluate introduction quality (band-based, anti-oracle)
-  router.post('/iqs/evaluate', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/iqs/evaluate', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
 
     // Require IQS consent
@@ -444,7 +541,7 @@ export function createRoutes(): Router {
   // ========================
 
   // POST /webhooks/register — Register a webhook endpoint
-  router.post('/webhooks/register', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/webhooks/register', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { endpoint_url, event_types } = req.body;
 
@@ -473,7 +570,7 @@ export function createRoutes(): Router {
   }));
 
   // DELETE /webhooks/unregister — Remove a webhook endpoint
-  router.delete('/webhooks/unregister', requireAuth, asyncHandler(async (req, res) => {
+  router.delete('/webhooks/unregister', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { endpoint_url } = req.body;
 
@@ -487,7 +584,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /webhooks — List agent's webhook registrations
-  router.get('/webhooks', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/webhooks', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const registrations = webhookService.getRegistrations(auth.agent_id);
 
@@ -507,7 +604,7 @@ export function createRoutes(): Router {
   // ========================
 
   // GET /consent — Get consent status
-  router.get('/consent', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/consent', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const status = consentService.getStatus(auth.agent_id);
 
@@ -518,7 +615,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /consent/grant — Grant consent for a purpose
-  router.post('/consent/grant', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/consent/grant', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { purpose } = req.body;
 
@@ -532,7 +629,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /consent/withdraw — Withdraw consent
-  router.post('/consent/withdraw', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/consent/withdraw', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { purpose } = req.body;
 
@@ -546,7 +643,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /consent/export — Export all consent data (GDPR Article 20)
-  router.get('/consent/export', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/consent/export', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const data = consentService.exportData(auth.agent_id);
 
@@ -554,7 +651,7 @@ export function createRoutes(): Router {
   }));
 
   // DELETE /consent/erase — Right to erasure (GDPR Article 17)
-  router.delete('/consent/erase', requireAuth, asyncHandler(async (req, res) => {
+  router.delete('/consent/erase', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const erased = consentService.eraseData(auth.agent_id);
 
@@ -566,7 +663,7 @@ export function createRoutes(): Router {
   // ========================
 
   // POST /payments/account — Create a payment account
-  router.post('/payments/account', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/payments/account', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { tier } = req.body;
 
@@ -582,7 +679,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /payments/balance — Get balance
-  router.get('/payments/balance', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/payments/balance', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const balance = paymentService.getBalance(auth.agent_id);
 
@@ -594,7 +691,7 @@ export function createRoutes(): Router {
   }));
 
   // POST /payments/deposit — Deposit funds (Phase 1: simulated)
-  router.post('/payments/deposit', requireAuth, asyncHandler(async (req, res) => {
+  router.post('/payments/deposit', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const { amount } = req.body;
 
@@ -611,7 +708,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /payments/history — Transaction history
-  router.get('/payments/history', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/payments/history', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
     const auth = (req as any).auth as AuthenticatedRequest;
     const limit = parseInt(req.query.limit as string) || 50;
 
@@ -621,7 +718,7 @@ export function createRoutes(): Router {
   }));
 
   // GET /payments/pricing — Current pricing
-  router.get('/payments/pricing', (_req, res) => {
+  router.get('/payments/pricing', rateLimit('public'), (_req, res) => {
     res.json({ pricing: paymentService.getPricing() });
   });
 
