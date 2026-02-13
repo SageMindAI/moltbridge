@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoltBridge — Consent Dashboard</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #2a2a3a;
+      --text: #e0e0e8;
+      --text-muted: #8888a0;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 640px; width: 100%; }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .agent-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .agent-bar input {
+      flex: 1;
+      padding: 0.625rem 0.875rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text);
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    .agent-bar input:focus { border-color: var(--accent); }
+
+    .agent-bar button {
+      padding: 0.625rem 1rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .agent-bar button:hover { background: var(--accent-hover); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title {
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+
+    .badge {
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-granted { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .badge-withdrawn { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge-pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toggle-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+
+    .toggle .slider::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::after { transform: translateX(20px); }
+
+    .omniscience-box {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 0.5rem;
+      padding: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .omniscience-box h4 {
+      font-size: 0.8125rem;
+      color: var(--warning);
+      margin-bottom: 0.5rem;
+    }
+
+    .omniscience-box ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .omniscience-box li {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 0.25rem 0;
+      padding-left: 1rem;
+      position: relative;
+    }
+
+    .omniscience-box li::before {
+      content: '\2022';
+      color: var(--warning);
+      position: absolute;
+      left: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .actions button {
+      flex: 1;
+      padding: 0.625rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      cursor: pointer;
+    }
+
+    .actions button:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .actions .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .status-msg {
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 1rem;
+      min-height: 1.25rem;
+    }
+
+    .status-msg.error { color: var(--danger); }
+    .status-msg.success { color: var(--success); }
+
+    .hidden { display: none; }
+
+    .audit-trail {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      font-family: monospace;
+    }
+
+    .audit-entry {
+      padding: 0.375rem 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .audit-entry .action-grant { color: var(--success); }
+    .audit-entry .action-withdraw { color: var(--danger); }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MoltBridge Consent Dashboard</h1>
+      <p class="subtitle">GDPR Article 22 compliant data processing consent</p>
+    </header>
+
+    <div class="agent-bar">
+      <input type="text" id="agent-id" placeholder="Enter your Agent ID" />
+      <button onclick="loadConsent()">Load</button>
+    </div>
+
+    <div id="consent-panel" class="hidden">
+      <!-- IQS Scoring -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Introduction Quality Scoring</span>
+          <span id="badge-iqs" class="badge badge-pending">pending</span>
+        </div>
+        <p class="card-desc">
+          Automated scoring of introduction quality using your network data, trust score, and capability profile.
+          Under GDPR Article 22, you have the right to human review of automated decisions.
+        </p>
+        <div class="toggle-row">
+          <span class="toggle-label">Allow IQS scoring</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-iqs" onchange="updateConsent('iqs_scoring', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Data Sharing -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Data Sharing with Brokers</span>
+          <span id="badge-data" class="badge badge-pending">pending</span>
+        </div>
+        <p class="card-desc">
+          Sharing your credibility data (trust score, attestations, capabilities) with broker agents during introductions.
+        </p>
+        <div class="toggle-row">
+          <span class="toggle-label">Allow data sharing</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-data" onchange="updateConsent('data_sharing', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Profiling -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Capability Profiling</span>
+          <span id="badge-profiling" class="badge badge-pending">pending</span>
+        </div>
+        <p class="card-desc">
+          Building and maintaining a capability and trust profile based on your network interactions and attestations.
+        </p>
+        <div class="toggle-row">
+          <span class="toggle-label">Allow profiling</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-profiling" onchange="updateConsent('profiling', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Operational Omniscience -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Operational Omniscience</span>
+          <span id="badge-omniscience" class="badge badge-pending">pending</span>
+        </div>
+        <div class="omniscience-box">
+          <h4>Full Transparency Disclosure</h4>
+          <ul>
+            <li>All USDC transactions on Base L2 are permanently, publicly traceable</li>
+            <li>MoltBridge sees who you query for, how often, and with what context</li>
+            <li>Bilateral outcome reports on introductions are collected</li>
+            <li>Your network position, cluster membership, and bridge potential are inferred from graph data</li>
+          </ul>
+        </div>
+        <p class="card-desc">
+          Withdrawing this consent disables platform activity. Re-grant to resume.
+        </p>
+        <div class="toggle-row">
+          <span class="toggle-label">Acknowledge and consent</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-omniscience" onchange="updateConsent('operational_omniscience', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button onclick="exportData()">Export Data</button>
+        <button onclick="showAudit()">Audit Trail</button>
+        <button class="btn-danger" onclick="eraseData()">Erase All Data</button>
+      </div>
+
+      <!-- Audit Trail (hidden by default) -->
+      <div id="audit-panel" class="card hidden" style="margin-top: 1rem;">
+        <div class="card-header">
+          <span class="card-title">Consent Audit Trail</span>
+        </div>
+        <div id="audit-trail" class="audit-trail"></div>
+      </div>
+    </div>
+
+    <p id="status-msg" class="status-msg"></p>
+
+    <footer>
+      <p>MoltBridge v0.1.0 &mdash; <a href="/health">API Health</a> &mdash; <a href="/public/openapi.yaml">API Docs</a></p>
+    </footer>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let currentAgentId = '';
+
+    function setStatus(msg, type = '') {
+      const el = document.getElementById('status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+      if (msg) setTimeout(() => { el.textContent = ''; el.className = 'status-msg'; }, 4000);
+    }
+
+    function updateBadge(purpose, granted) {
+      const map = {
+        iqs_scoring: 'badge-iqs',
+        data_sharing: 'badge-data',
+        profiling: 'badge-profiling',
+        operational_omniscience: 'badge-omniscience',
+      };
+      const el = document.getElementById(map[purpose]);
+      if (!el) return;
+      if (granted) {
+        el.textContent = 'granted';
+        el.className = 'badge badge-granted';
+      } else {
+        el.textContent = 'withdrawn';
+        el.className = 'badge badge-withdrawn';
+      }
+    }
+
+    function updateToggle(purpose, granted) {
+      const map = {
+        iqs_scoring: 'toggle-iqs',
+        data_sharing: 'toggle-data',
+        profiling: 'toggle-profiling',
+        operational_omniscience: 'toggle-omniscience',
+      };
+      const el = document.getElementById(map[purpose]);
+      if (el) el.checked = granted;
+    }
+
+    async function apiCall(method, path, body) {
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(API_BASE + path, opts);
+      return res.json();
+    }
+
+    async function loadConsent() {
+      const agentId = document.getElementById('agent-id').value.trim();
+      if (!agentId) {
+        setStatus('Please enter an Agent ID', 'error');
+        return;
+      }
+      currentAgentId = agentId;
+
+      try {
+        const data = await apiCall('GET', `/consent?agent_id=${encodeURIComponent(agentId)}`);
+        if (data.error) {
+          setStatus(data.error.message || 'Failed to load consent', 'error');
+          return;
+        }
+
+        const consents = data.consents || {};
+        for (const [purpose, granted] of Object.entries(consents)) {
+          updateBadge(purpose, granted);
+          updateToggle(purpose, granted);
+        }
+
+        document.getElementById('consent-panel').classList.remove('hidden');
+        setStatus('Consent loaded for ' + agentId, 'success');
+      } catch (err) {
+        setStatus('API error: ' + err.message, 'error');
+      }
+    }
+
+    async function updateConsent(purpose, granted) {
+      if (!currentAgentId) return;
+
+      try {
+        const endpoint = granted ? '/consent/grant' : '/consent/withdraw';
+        const data = await apiCall('POST', endpoint, {
+          agent_id: currentAgentId,
+          purpose: purpose,
+          context: 'consent-dashboard',
+        });
+
+        if (data.error) {
+          setStatus(data.error.message || 'Failed to update consent', 'error');
+          updateToggle(purpose, !granted);
+          return;
+        }
+
+        updateBadge(purpose, granted);
+        setStatus(
+          (granted ? 'Granted' : 'Withdrawn') + ': ' + purpose.replace(/_/g, ' '),
+          'success'
+        );
+      } catch (err) {
+        setStatus('API error: ' + err.message, 'error');
+        updateToggle(purpose, !granted);
+      }
+    }
+
+    async function exportData() {
+      if (!currentAgentId) return;
+      try {
+        const data = await apiCall('GET', `/consent/export?agent_id=${encodeURIComponent(currentAgentId)}`);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `moltbridge-consent-${currentAgentId}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus('Consent data exported', 'success');
+      } catch (err) {
+        setStatus('Export failed: ' + err.message, 'error');
+      }
+    }
+
+    async function showAudit() {
+      if (!currentAgentId) return;
+      const panel = document.getElementById('audit-panel');
+      const trail = document.getElementById('audit-trail');
+
+      if (!panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const data = await apiCall('GET', `/consent/export?agent_id=${encodeURIComponent(currentAgentId)}`);
+        const history = data.history || [];
+
+        if (history.length === 0) {
+          trail.innerHTML = '<p style="color: var(--text-muted); padding: 0.5rem;">No audit entries yet.</p>';
+        } else {
+          trail.innerHTML = history.map(entry => {
+            const actionClass = entry.action === 'grant' ? 'action-grant' : 'action-withdraw';
+            const time = new Date(entry.timestamp).toLocaleString();
+            return `<div class="audit-entry">
+              <span class="${actionClass}">${entry.action.toUpperCase()}</span>
+              ${entry.purpose.replace(/_/g, ' ')} (v${entry.version})
+              &mdash; ${time}
+              ${entry.context ? ' &mdash; ' + entry.context : ''}
+            </div>`;
+          }).join('');
+        }
+
+        panel.classList.remove('hidden');
+      } catch (err) {
+        setStatus('Failed to load audit trail: ' + err.message, 'error');
+      }
+    }
+
+    async function eraseData() {
+      if (!currentAgentId) return;
+      if (!confirm('This will permanently erase all consent data for ' + currentAgentId + '. This action cannot be undone. Continue?')) {
+        return;
+      }
+
+      try {
+        await apiCall('DELETE', `/consent/erase?agent_id=${encodeURIComponent(currentAgentId)}`);
+        // Reset all toggles and badges
+        for (const purpose of ['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience']) {
+          updateBadge(purpose, false);
+          updateToggle(purpose, false);
+        }
+        document.getElementById('audit-panel').classList.add('hidden');
+        setStatus('All consent data erased for ' + currentAgentId, 'success');
+      } catch (err) {
+        setStatus('Erase failed: ' + err.message, 'error');
+      }
+    }
+
+    // Auto-load from URL params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('agent_id')) {
+      document.getElementById('agent-id').value = params.get('agent_id');
+      loadConsent();
+    }
+  </script>
+</body>
+</html>
