@@ -1,10 +1,10 @@
 {
   "last_hooks_fired": {
-    "context_health": "2026-02-12T02:06:17.376198+00:00",
-    "meta_reflection": "2026-02-12T02:14:10.815322+00:00",
+    "context_health": "2026-02-13T08:41:24.683152+00:00",
+    "meta_reflection": "2026-02-13T08:41:24.686272+00:00",
     "session_boundary": "2026-02-12T02:06:17.377656+00:00"
   },
-  "last_transcript_size": 1219722,
+  "last_transcript_size": 18698058,
   "compaction_detected": false,
   "examination_log": []
 }

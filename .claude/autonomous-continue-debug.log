@@ -42,3 +42,11 @@
 [2026-02-11T18:14:59.512613] Instance check: should_fire=False, reason=not_autonomous
 [2026-02-11T18:14:59.513005] Instance context: my_id=claude-69009, owner=None, is_owner=False
 [2026-02-11T18:14:59.513243] No autonomous session active
+[2026-02-13T00:41:24.641650] === Autonomous Continue Hook Running ===
+[2026-02-13T00:41:24.686644] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T00:41:24.686902] Instance context: my_id=claude-3362, owner=None, is_owner=False
+[2026-02-13T00:41:24.687102] No autonomous session active
+[2026-02-13T00:41:53.863758] === Autonomous Continue Hook Running ===
+[2026-02-13T00:41:53.909713] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T00:41:53.910195] Instance context: my_id=claude-3362, owner=None, is_owner=False
+[2026-02-13T00:41:53.910432] No autonomous session active

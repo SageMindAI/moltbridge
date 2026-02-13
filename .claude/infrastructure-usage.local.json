@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Infrastructure usage metrics. Tracks skill invocations and script executions.",
+  "last_updated": "2026-02-13T00:41:40.582429",
+  "skills": {
+    "reflect-quick": {
+      "total_invocations": 1,
+      "last_invoked": "2026-02-13T00:41:40.582301",
+      "sessions": [
+        "unknown"
+      ],
+      "recent": [
+        {
+          "timestamp": "2026-02-13T00:41:40.582326",
+          "session_id": "unknown",
+          "args": "Continuation session focused on coverage polish (88.11%), OpenAPI completeness (28 endpoints), README accuracy, and final push. No novel lessons \u2014 pure execution completion. Phase 1 is feature-complete with 547 tests across server + both SDKs."
+        }
+      ]
+    }
+  },
+  "scripts": {},
+  "summary": {
+    "total_skill_invocations": 1,
+    "total_script_executions": 0,
+    "unique_skills_used": 1,
+    "unique_scripts_used": 0
+  }
+}
