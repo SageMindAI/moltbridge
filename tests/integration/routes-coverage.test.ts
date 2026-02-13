@@ -614,3 +614,284 @@ describe('Payment Endpoints', () => {
     expect(res.body.pricing).toHaveProperty('broker_discovery');
   });
 });
+
+// ========================
+// Outcome Error Paths (lines 447-456)
+// ========================
+
+describe('Outcome Report Error Paths', () => {
+  // Use a dedicated agent for outcome error tests
+  const outcomeKeyPair = generateTestKeyPair();
+  const OUTCOME_AGENT = 'outcome-error-agent';
+
+  function outcomeAuth(method: string, path: string, body: any = {}) {
+    return signRequest(outcomeKeyPair, OUTCOME_AGENT, method, path, body);
+  }
+
+  function mockOutcomeAuthLookup() {
+    mockSession.run.mockImplementation(async (query: string) => {
+      if (query.includes('RETURN a.pubkey')) {
+        return {
+          records: [{
+            get: (key: string) => key === 'pubkey' ? outcomeKeyPair.publicKeyB64 : null,
+          }],
+        };
+      }
+      return { records: [] };
+    });
+  }
+
+  it('POST /report-outcome — 400 when missing required fields', async () => {
+    mockOutcomeAuthLookup();
+
+    // Missing status and evidence_type
+    const body = { introduction_id: 'some-intro' };
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', body))
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('Missing');
+  });
+
+  it('POST /report-outcome — 400 when invalid status value', async () => {
+    const { clearReplayCache: crc } = await import('../../src/middleware/auth');
+    crc();
+    mockOutcomeAuthLookup();
+
+    const body = {
+      introduction_id: 'some-intro',
+      status: 'invalid_status',
+      evidence_type: 'requester_report',
+    };
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', body))
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('Invalid status');
+  });
+
+  it('POST /report-outcome — 400 when invalid evidence_type', async () => {
+    const { clearReplayCache: crc } = await import('../../src/middleware/auth');
+    crc();
+    mockOutcomeAuthLookup();
+
+    const body = {
+      introduction_id: 'some-intro',
+      status: 'successful',
+      evidence_type: 'invalid_evidence',
+    };
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', body))
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('Invalid evidence_type');
+  });
+
+  it('POST /report-outcome — 400 when outcome not found', async () => {
+    const { clearReplayCache: crc2 } = await import('../../src/middleware/auth');
+    crc2();
+    mockOutcomeAuthLookup();
+
+    const body = {
+      introduction_id: 'nonexistent-intro-id',
+      status: 'successful',
+      evidence_type: 'requester_report',
+    };
+
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', body))
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('Outcome not found');
+  });
+
+  it('POST /report-outcome — 409 when role already reported', async () => {
+    mockOutcomeAuthLookup();
+
+    // First create an outcome (POST /outcomes) — needs requester_id field
+    const createBody = {
+      introduction_id: 'dup-report-intro',
+      requester_id: OUTCOME_AGENT,
+      target_id: 'target-agent-dup',
+      broker_id: 'broker-agent-dup',
+    };
+
+    const createRes = await request(app)
+      .post('/outcomes')
+      .set('Authorization', outcomeAuth('POST', '/outcomes', createBody))
+      .send(createBody);
+
+    expect(createRes.status).toBe(201);
+
+    const { clearReplayCache: cr1 } = await import('../../src/middleware/auth');
+    cr1();
+
+    // First report succeeds
+    const reportBody = {
+      introduction_id: 'dup-report-intro',
+      status: 'successful',
+      evidence_type: 'requester_report',
+    };
+
+    const firstReport = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', reportBody))
+      .send(reportBody);
+
+    expect(firstReport.status).toBe(201);
+
+    const { clearReplayCache: cr2 } = await import('../../src/middleware/auth');
+    cr2();
+
+    // Second report from same role should fail
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', outcomeAuth('POST', '/report-outcome', reportBody))
+      .send(reportBody);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toContain('already reported');
+  });
+
+  it('POST /report-outcome — 401 when not a party', async () => {
+    // Create outcome with different requester than our auth agent
+    const otherKeyPair = generateTestKeyPair();
+    const OTHER_AGENT = 'other-outcome-agent';
+
+    function otherAuth(method: string, path: string, body: any = {}) {
+      return signRequest(otherKeyPair, OTHER_AGENT, method, path, body);
+    }
+
+    // Mock auth to resolve both agents
+    mockSession.run.mockImplementation(async (query: string, params: any) => {
+      if (query.includes('RETURN a.pubkey')) {
+        if (params?.agentId === OUTCOME_AGENT) {
+          return { records: [{ get: () => outcomeKeyPair.publicKeyB64 }] };
+        }
+        if (params?.agentId === OTHER_AGENT) {
+          return { records: [{ get: () => otherKeyPair.publicKeyB64 }] };
+        }
+      }
+      return { records: [] };
+    });
+
+    // Create outcome where OUTCOME_AGENT is the requester
+    const createBody = {
+      introduction_id: 'not-party-intro',
+      requester_id: OUTCOME_AGENT,
+      target_id: 'target-xxx',
+      broker_id: 'broker-xxx',
+    };
+
+    await request(app)
+      .post('/outcomes')
+      .set('Authorization', outcomeAuth('POST', '/outcomes', createBody))
+      .send(createBody);
+
+    const { clearReplayCache: cr } = await import('../../src/middleware/auth');
+    cr();
+
+    // OTHER_AGENT tries to report — not a party to this intro
+    const reportBody = {
+      introduction_id: 'not-party-intro',
+      status: 'successful',
+      evidence_type: 'requester_report',
+    };
+
+    const res = await request(app)
+      .post('/report-outcome')
+      .set('Authorization', otherAuth('POST', '/report-outcome', reportBody))
+      .send(reportBody);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toContain('not a party');
+  });
+});
+
+// ========================
+// Payment Account Error Paths (line 678)
+// ========================
+
+describe('Payment Account Error Paths', () => {
+  const payErrKeyPair = generateTestKeyPair();
+  const PAY_ERR_AGENT = 'pay-err-agent';
+
+  function payErrAuth(method: string, path: string, body: any = {}) {
+    return signRequest(payErrKeyPair, PAY_ERR_AGENT, method, path, body);
+  }
+
+  function mockPayErrAuth() {
+    mockSession.run.mockImplementation(async (query: string) => {
+      if (query.includes('RETURN a.pubkey')) {
+        return {
+          records: [{
+            get: (key: string) => key === 'pubkey' ? payErrKeyPair.publicKeyB64 : null,
+          }],
+        };
+      }
+      return { records: [] };
+    });
+  }
+
+  it('POST /payments/account — 409 when account already exists', async () => {
+    mockPayErrAuth();
+
+    const body = { tier: 'founding' };
+
+    // First creation succeeds
+    const first = await request(app)
+      .post('/payments/account')
+      .set('Authorization', payErrAuth('POST', '/payments/account', body))
+      .send(body);
+
+    expect(first.status).toBe(201);
+
+    const { clearReplayCache: cr } = await import('../../src/middleware/auth');
+    cr();
+
+    // Second creation should conflict
+    const res = await request(app)
+      .post('/payments/account')
+      .set('Authorization', payErrAuth('POST', '/payments/account', body))
+      .send(body);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toContain('already exists');
+  });
+
+  it('GET /payments/balance — 400 when no payment account', async () => {
+    // Use a fresh agent that has NO payment account
+    const balKeyPair = generateTestKeyPair();
+    const BAL_AGENT = 'balance-no-acct-agent';
+
+    function balAuth(method: string, path: string, body: any = {}) {
+      return signRequest(balKeyPair, BAL_AGENT, method, path, body);
+    }
+
+    mockSession.run.mockImplementation(async (query: string) => {
+      if (query.includes('RETURN a.pubkey')) {
+        return {
+          records: [{
+            get: (key: string) => key === 'pubkey' ? balKeyPair.publicKeyB64 : null,
+          }],
+        };
+      }
+      return { records: [] };
+    });
+
+    const res = await request(app)
+      .get('/payments/balance')
+      .set('Authorization', balAuth('GET', '/payments/balance'));
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('No payment account');
+  });
+});

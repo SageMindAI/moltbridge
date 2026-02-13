@@ -220,7 +220,7 @@ moltbridge/
 │   └── seed-sandbox.ts        # 100+ synthetic agents
 ├── public/
 │   ├── openapi.yaml           # OpenAPI 3.0 spec
-│   ├── consent/               # Consent dashboard UI
+│   ├── dashboard/             # Consent dashboard UI
 │   └── .well-known/agent.json # A2A Agent Card
 ├── Dockerfile
 ├── docker-compose.yml

@@ -157,6 +157,77 @@ describe('crypto/keys', () => {
     });
   });
 
+  describe('dev keypair generation', () => {
+    it('generates and persists .dev-keys.json when no env var and no file', async () => {
+      // Remove env var
+      delete process.env.MOLTBRIDGE_SIGNING_KEY;
+
+      // Mock fs to simulate no .dev-keys.json existing
+      vi.resetModules();
+
+      // Spy on fs to track file operations without actually touching the filesystem
+      const mockExistsSync = vi.fn().mockReturnValue(false);
+      const mockWriteFileSync = vi.fn();
+      const mockReadFileSync = vi.fn();
+
+      vi.doMock('fs', () => ({
+        ...fs,
+        existsSync: mockExistsSync,
+        writeFileSync: mockWriteFileSync,
+        readFileSync: mockReadFileSync,
+      }));
+
+      const freshKeys = await import('../../src/crypto/keys');
+      const kp = freshKeys.getSigningKeyPair();
+
+      // Should have generated a keypair
+      expect(kp.privateKey).toBeInstanceOf(Uint8Array);
+      expect(kp.publicKey).toBeInstanceOf(Uint8Array);
+      expect(kp.privateKey.length).toBe(32);
+      expect(kp.publicKey.length).toBe(32);
+
+      // Should have written to .dev-keys.json
+      expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
+      const writtenPath = mockWriteFileSync.mock.calls[0][0];
+      expect(writtenPath).toContain('.dev-keys.json');
+
+      // Verify the written content is valid JSON with expected fields
+      const writtenContent = JSON.parse(mockWriteFileSync.mock.calls[0][1]);
+      expect(writtenContent).toHaveProperty('privateKey');
+      expect(writtenContent).toHaveProperty('publicKey');
+      expect(writtenContent).toHaveProperty('generatedAt');
+      expect(writtenContent).toHaveProperty('note');
+    });
+
+    it('loads existing .dev-keys.json when present', async () => {
+      delete process.env.MOLTBRIDGE_SIGNING_KEY;
+
+      vi.resetModules();
+
+      // Generate a known keypair to store
+      const { utils, getPublicKey } = await import('@noble/ed25519');
+      const knownPriv = utils.randomPrivateKey();
+      const knownPub = getPublicKey(knownPriv);
+      const storedData = JSON.stringify({
+        privateKey: Buffer.from(knownPriv).toString('base64url'),
+        publicKey: Buffer.from(knownPub).toString('base64url'),
+      });
+
+      vi.doMock('fs', () => ({
+        ...fs,
+        existsSync: vi.fn().mockReturnValue(true),
+        readFileSync: vi.fn().mockReturnValue(storedData),
+        writeFileSync: vi.fn(),
+      }));
+
+      const freshKeys = await import('../../src/crypto/keys');
+      const kp = freshKeys.getSigningKeyPair();
+
+      expect(Buffer.from(kp.privateKey).toString('base64url'))
+        .toBe(Buffer.from(knownPriv).toString('base64url'));
+    });
+  });
+
   describe('base64urlEncode/base64urlDecode', () => {
     it('round-trips correctly', () => {
       const original = crypto.randomBytes(32);
