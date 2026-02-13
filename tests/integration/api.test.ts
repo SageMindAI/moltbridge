@@ -701,4 +701,144 @@ describe('Security', () => {
 
     expect(res.status).toBe(400);
   });
+
+  describe('PUT /profile', () => {
+    it('updates agent profile with valid auth', async () => {
+      const keyPair = generateTestKeyPair();
+      const body = { capabilities: ['ai-research', 'web3'], clusters: ['tech-founders'] };
+      const auth = signRequest(keyPair, 'profile-agent', 'PUT', '/profile', body);
+
+      // Auth lookup returns pubkey
+      mockSession.run.mockImplementation(async (query: string) => {
+        if (query.includes('RETURN a.pubkey')) {
+          return {
+            records: [{
+              get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
+            }],
+          };
+        }
+        // Update profile returns updated agent
+        return {
+          records: [{
+            get: () => ({
+              properties: {
+                id: 'profile-agent',
+                name: 'Profile Agent',
+                capabilities: ['ai-research', 'web3'],
+              },
+            }),
+          }],
+        };
+      });
+
+      const res = await request(app)
+        .put('/profile')
+        .set('Authorization', auth)
+        .set('Content-Type', 'application/json')
+        .send(body);
+
+      expect(res.status).toBe(200);
+      expect(res.body.agent).toBeDefined();
+    });
+
+    it('rejects PUT /profile without auth', async () => {
+      const res = await request(app)
+        .put('/profile')
+        .send({ capabilities: ['test'] });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /credibility-packet', () => {
+    it('returns credibility JWT with valid auth and query params', async () => {
+      const keyPair = generateTestKeyPair();
+      const auth = signRequest(keyPair, 'cred-requester', 'GET', '/credibility-packet', {});
+
+      // Auth lookup returns pubkey, then credibility query returns graph data
+      mockSession.run.mockImplementation(async (query: string) => {
+        if (query.includes('RETURN a.pubkey')) {
+          return {
+            records: [{
+              get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
+            }],
+          };
+        }
+        // Credibility service query
+        return {
+          records: [{
+            get: (key: string) => {
+              switch (key) {
+                case 'requester_trust': return 0.7;
+                case 'requester_caps': return ['ai-research'];
+                case 'broker_trust': return 0.8;
+                case 'broker_caps': return ['venture-capital'];
+                case 'broker_clusters': return ['tech'];
+                case 'attestation_count': return 3;
+                default: return null;
+              }
+            },
+          }],
+        };
+      });
+
+      const res = await request(app)
+        .get('/credibility-packet?target=target-001&broker=broker-001')
+        .set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body.packet).toBeDefined();
+      expect(res.body.packet.split('.')).toHaveLength(3); // JWT format
+      expect(res.body.expires_in).toBe(30 * 24 * 60 * 60);
+      expect(res.body.verify_url).toBe('/.well-known/jwks.json');
+    });
+
+    it('rejects credibility-packet without target/broker params', async () => {
+      const keyPair = generateTestKeyPair();
+      const auth = signRequest(keyPair, 'cred-agent-2', 'GET', '/credibility-packet', {});
+
+      mockSession.run.mockImplementation(async (query: string) => {
+        if (query.includes('RETURN a.pubkey')) {
+          return {
+            records: [{
+              get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
+            }],
+          };
+        }
+        return { records: [] };
+      });
+
+      const res = await request(app)
+        .get('/credibility-packet')
+        .set('Authorization', auth);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toContain('Missing target');
+    });
+  });
+
+  describe('GET /outcomes/agent/:agentId/stats', () => {
+    it('returns stats for an agent', async () => {
+      const keyPair = generateTestKeyPair();
+      const auth = signRequest(keyPair, 'stats-agent', 'GET', '/outcomes/agent/some-agent/stats', {});
+
+      mockSession.run.mockImplementation(async (query: string) => {
+        if (query.includes('RETURN a.pubkey')) {
+          return {
+            records: [{
+              get: (key: string) => key === 'pubkey' ? keyPair.publicKeyB64 : null,
+            }],
+          };
+        }
+        return { records: [] };
+      });
+
+      const res = await request(app)
+        .get('/outcomes/agent/some-agent/stats')
+        .set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats).toBeDefined();
+    });
+  });
 });
