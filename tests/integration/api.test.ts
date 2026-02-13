@@ -171,11 +171,76 @@ describe('POST /register', () => {
         capabilities: ['ai-research'],
         clusters: [],
         verification_token: token,
+        omniscience_acknowledged: true,
+        article22_consent: true,
       });
 
     expect(res.status).toBe(201);
     expect(res.body.agent).toBeDefined();
     expect(res.body.agent.id).toBe('test-agent');
+    expect(res.body.consents_granted).toContain('operational_omniscience');
+    expect(res.body.consents_granted).toContain('iqs_scoring');
+    expect(res.body.disclosures_acknowledged.omniscience).toBe('v1.0');
+    expect(res.body.disclosures_acknowledged.article22).toBe(true);
+  });
+
+  it('returns omniscience disclosure when not acknowledged', async () => {
+    const keyPair2 = generateTestKeyPair();
+    const challengeRes2 = await request(app).post('/verify').send({});
+    const solution2 = solveChallenge(challengeRes2.body.nonce, challengeRes2.body.difficulty);
+    const verifyRes2 = await request(app)
+      .post('/verify')
+      .send({ challenge_id: challengeRes2.body.challenge_id, proof_of_work: solution2 });
+
+    const res = await request(app)
+      .post('/register')
+      .send({
+        agent_id: 'test-no-ack',
+        name: 'Test Agent',
+        platform: 'test',
+        pubkey: keyPair2.publicKeyB64,
+        capabilities: [],
+        clusters: [],
+        verification_token: verifyRes2.body.token,
+        // Missing: omniscience_acknowledged, article22_consent
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.registration_blocked).toBe(true);
+    expect(res.body.reason).toBe('omniscience_disclosure_required');
+    expect(res.body.disclosure).toBeDefined();
+    expect(res.body.disclosure.version).toBe('v1.0');
+    expect(res.body.disclosure.categories).toHaveLength(4);
+    expect(res.body.article22_info).toBeDefined();
+  });
+
+  it('returns article22 info when omniscience acknowledged but article22 missing', async () => {
+    const keyPair3 = generateTestKeyPair();
+    const challengeRes3 = await request(app).post('/verify').send({});
+    const solution3 = solveChallenge(challengeRes3.body.nonce, challengeRes3.body.difficulty);
+    const verifyRes3 = await request(app)
+      .post('/verify')
+      .send({ challenge_id: challengeRes3.body.challenge_id, proof_of_work: solution3 });
+
+    const res = await request(app)
+      .post('/register')
+      .send({
+        agent_id: 'test-no-art22',
+        name: 'Test Agent',
+        platform: 'test',
+        pubkey: keyPair3.publicKeyB64,
+        capabilities: [],
+        clusters: [],
+        verification_token: verifyRes3.body.token,
+        omniscience_acknowledged: true,
+        // Missing: article22_consent
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.registration_blocked).toBe(true);
+    expect(res.body.reason).toBe('article22_consent_required');
+    expect(res.body.article22_info.description).toContain('GDPR Article 22');
+    expect(res.body.article22_info.appeal_available).toBe(true);
   });
 
   it('rejects registration with missing required fields', async () => {
@@ -199,6 +264,8 @@ describe('POST /register', () => {
         capabilities: ['ai-research'],
         clusters: [],
         verification_token: 'invalid-token',
+        omniscience_acknowledged: true,
+        article22_consent: true,
       });
 
     expect(res.status).toBe(401);
@@ -229,6 +296,8 @@ describe('POST /register', () => {
         capabilities: ['ai-research'],
         clusters: [],
         verification_token: verifyRes.body.token,
+        omniscience_acknowledged: true,
+        article22_consent: true,
       });
 
     expect(res.status).toBe(409);
@@ -563,6 +632,8 @@ describe('Security', () => {
         capabilities: [],
         clusters: [],
         verification_token: verifyRes.body.token,
+        omniscience_acknowledged: true,
+        article22_consent: true,
       });
 
     expect(res.status).toBe(400);

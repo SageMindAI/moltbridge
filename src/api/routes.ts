@@ -17,7 +17,7 @@ import { VerificationService } from '../services/verification';
 import { RegistrationService } from '../services/registration';
 import { IQSService, type IQSComponents } from '../services/iqs';
 import { WebhookService, type WebhookEventType } from '../services/webhooks';
-import { ConsentService, CONSENT_PURPOSES, CONSENT_DESCRIPTIONS, type ConsentPurpose } from '../services/consent';
+import { ConsentService, CONSENT_PURPOSES, CONSENT_DESCRIPTIONS, OMNISCIENCE_DISCLOSURE, type ConsentPurpose } from '../services/consent';
 import { PaymentService, type PaymentType } from '../services/payments';
 import type { AuthenticatedRequest } from '../types';
 
@@ -93,16 +93,53 @@ export function createRoutes(): Router {
   });
 
   // POST /register — Register a new agent
+  // Requires explicit acknowledgment of operational omniscience disclosure
+  // and GDPR Article 22 consent for IQS automated decision-making.
   router.post('/register', asyncHandler(async (req, res) => {
     const {
       agent_id, name, platform, pubkey,
       capabilities, clusters, a2a_endpoint,
       verification_token,
+      omniscience_acknowledged,
+      article22_consent,
     } = req.body;
 
     // Validate required fields
     if (!agent_id || !name || !platform || !pubkey || !verification_token) {
       throw Errors.validationError('Missing required fields: agent_id, name, platform, pubkey, verification_token');
+    }
+
+    // Require explicit omniscience acknowledgment (spec Section 9)
+    if (!omniscience_acknowledged) {
+      res.status(200).json({
+        registration_blocked: true,
+        reason: 'omniscience_disclosure_required',
+        disclosure: OMNISCIENCE_DISCLOSURE,
+        message: 'You must acknowledge the operational omniscience disclosure before registering. Re-submit with omniscience_acknowledged: true.',
+        article22_info: {
+          description: 'MoltBridge uses automated Introduction Quality Scoring (IQS) that may affect your access to professional opportunities. Under GDPR Article 22, you have the right to human review of automated decisions.',
+          consent_required: true,
+          appeal_available: true,
+          message: 'Include article22_consent: true to consent to IQS automated decision-making.',
+        },
+      });
+      return;
+    }
+
+    // Require GDPR Article 22 consent for IQS (spec Section 8.11)
+    if (!article22_consent) {
+      res.status(200).json({
+        registration_blocked: true,
+        reason: 'article22_consent_required',
+        article22_info: {
+          description: 'MoltBridge uses automated Introduction Quality Scoring (IQS) that may affect your access to professional opportunities. Under GDPR Article 22, you have the right to human review of automated decisions.',
+          consent_required: true,
+          appeal_available: true,
+          appeal_endpoint: 'POST /v1/introductions/appeal (Phase 2)',
+          message: 'Include article22_consent: true to consent to IQS automated decision-making.',
+        },
+      });
+      return;
     }
 
     // Validate verification token
@@ -120,9 +157,24 @@ export function createRoutes(): Router {
       clusters: clusters || [],
       a2a_endpoint,
       verification_token,
+      omniscience_acknowledged: true,
+      article22_consent: true,
     });
 
-    res.status(201).json({ agent });
+    // Auto-grant consent records for acknowledged disclosures
+    consentService.grant(agent_id, 'operational_omniscience', 'registration');
+    consentService.grant(agent_id, 'iqs_scoring', 'registration-article22');
+    consentService.grant(agent_id, 'data_sharing', 'registration-default');
+    consentService.grant(agent_id, 'profiling', 'registration-default');
+
+    res.status(201).json({
+      agent,
+      consents_granted: ['operational_omniscience', 'iqs_scoring', 'data_sharing', 'profiling'],
+      disclosures_acknowledged: {
+        omniscience: OMNISCIENCE_DISCLOSURE.version,
+        article22: true,
+      },
+    });
   }));
 
   // ========================

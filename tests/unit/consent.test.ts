@@ -250,8 +250,8 @@ describe('ConsentService', () => {
   });
 
   describe('Constants', () => {
-    it('CONSENT_PURPOSES has all 3 purposes', () => {
-      expect(CONSENT_PURPOSES).toEqual(['iqs_scoring', 'data_sharing', 'profiling']);
+    it('CONSENT_PURPOSES has all 4 purposes', () => {
+      expect(CONSENT_PURPOSES).toEqual(['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience']);
     });
 
     it('CONSENT_DESCRIPTIONS has description for each purpose', () => {
@@ -259,6 +259,54 @@ describe('ConsentService', () => {
         expect(CONSENT_DESCRIPTIONS[purpose]).toBeTruthy();
         expect(typeof CONSENT_DESCRIPTIONS[purpose]).toBe('string');
       }
+    });
+
+    it('operational_omniscience description mentions payment and graph data', () => {
+      expect(CONSENT_DESCRIPTIONS.operational_omniscience).toContain('USDC');
+      expect(CONSENT_DESCRIPTIONS.operational_omniscience).toContain('graph data');
+    });
+
+    it('iqs_scoring description mentions GDPR Article 22', () => {
+      expect(CONSENT_DESCRIPTIONS.iqs_scoring).toContain('Article 22');
+    });
+  });
+
+  describe('OMNISCIENCE_DISCLOSURE', () => {
+    it('has valid structure', async () => {
+      const { OMNISCIENCE_DISCLOSURE } = await import('../../src/services/consent');
+
+      expect(OMNISCIENCE_DISCLOSURE.version).toBe('v1.0');
+      expect(OMNISCIENCE_DISCLOSURE.categories).toHaveLength(4);
+      expect(OMNISCIENCE_DISCLOSURE.consent_required).toBe(true);
+      expect(OMNISCIENCE_DISCLOSURE.revocable).toBe(true);
+    });
+
+    it('covers all four omniscience categories', async () => {
+      const { OMNISCIENCE_DISCLOSURE } = await import('../../src/services/consent');
+
+      const categoryNames = OMNISCIENCE_DISCLOSURE.categories.map(c => c.category);
+      expect(categoryNames).toContain('payment_transparency');
+      expect(categoryNames).toContain('query_patterns');
+      expect(categoryNames).toContain('outcome_data');
+      expect(categoryNames).toContain('graph_position');
+    });
+  });
+
+  describe('operational_omniscience consent', () => {
+    it('can grant and check operational_omniscience', () => {
+      service.grant('omni-agent', 'operational_omniscience', 'registration');
+      expect(service.hasConsent('omni-agent', 'operational_omniscience')).toBe(true);
+    });
+
+    it('can withdraw operational_omniscience', () => {
+      service.grant('omni-agent-2', 'operational_omniscience', 'registration');
+      service.withdraw('omni-agent-2', 'operational_omniscience', 'user-request');
+      expect(service.hasConsent('omni-agent-2', 'operational_omniscience')).toBe(false);
+    });
+
+    it('grantDefaults includes operational_omniscience', () => {
+      const status = service.grantDefaults('defaults-agent', 'test');
+      expect(status.consents.operational_omniscience).toBe(true);
     });
   });
 });

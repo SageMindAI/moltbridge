@@ -163,6 +163,8 @@ export interface RegistrationRequest {
   clusters: string[];
   a2a_endpoint?: string;
   verification_token: string;   // JWT from /verify
+  omniscience_acknowledged?: boolean; // Required: explicit ack of operational omniscience
+  article22_consent?: boolean;        // Required: consent to IQS automated decision-making
 }
 
 export interface ProfileUpdateRequest {

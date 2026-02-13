@@ -16,7 +16,7 @@
  * - Consent export (GDPR Article 20)
  */
 
-export type ConsentPurpose = 'iqs_scoring' | 'data_sharing' | 'profiling';
+export type ConsentPurpose = 'iqs_scoring' | 'data_sharing' | 'profiling' | 'operational_omniscience';
 
 export interface ConsentRecord {
   agent_id: string;
@@ -43,12 +43,43 @@ export interface ConsentStatus {
   last_updated: string | null;
 }
 
-export const CONSENT_PURPOSES: ConsentPurpose[] = ['iqs_scoring', 'data_sharing', 'profiling'];
+export const CONSENT_PURPOSES: ConsentPurpose[] = ['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience'];
 
 export const CONSENT_DESCRIPTIONS: Record<ConsentPurpose, string> = {
-  iqs_scoring: 'Automated scoring of introduction quality using your network data, trust score, and capability profile.',
+  iqs_scoring: 'Automated scoring of introduction quality using your network data, trust score, and capability profile. Under GDPR Article 22, you have the right to human review of automated decisions.',
   data_sharing: 'Sharing your credibility data (trust score, attestations, capabilities) with broker agents during introductions.',
   profiling: 'Building and maintaining a capability and trust profile based on your network interactions and attestations.',
+  operational_omniscience: 'MoltBridge observes: (1) all USDC payment amounts, wallet addresses, and timing on-chain; (2) who you query for, how often, and with what context; (3) bilateral outcome reports on introductions; (4) your inferred network position, cluster membership, and bridge potential from graph data.',
+};
+
+/**
+ * Operational Omniscience Disclosure — per spec Section 9.
+ * Returned to agents during registration.
+ */
+export const OMNISCIENCE_DISCLOSURE = {
+  version: 'v1.0',
+  summary: 'MoltBridge has full visibility into your platform activity. This disclosure describes exactly what we can see.',
+  categories: [
+    {
+      category: 'payment_transparency',
+      description: 'All USDC transactions on Base L2 are permanently, publicly traceable. MoltBridge and anyone else can see payment amounts, wallet addresses, and timing.',
+    },
+    {
+      category: 'query_patterns',
+      description: 'MoltBridge sees who you query for, how often, and with what context. This data is used for IQS computation and demand-responsive thresholds.',
+    },
+    {
+      category: 'outcome_data',
+      description: 'MoltBridge collects bilateral outcome reports on introductions, building a history of which introductions succeeded or failed.',
+    },
+    {
+      category: 'graph_position',
+      description: 'MoltBridge can infer your network position, cluster membership, and bridge potential from the graph data you contribute.',
+    },
+  ],
+  consent_required: true,
+  revocable: true,
+  revocation_note: 'Withdrawing operational_omniscience consent disables platform activity. Re-grant to resume.',
 };
 
 export class ConsentService {
@@ -156,6 +187,7 @@ export class ConsentService {
       iqs_scoring: false,
       data_sharing: false,
       profiling: false,
+      operational_omniscience: false,
     };
 
     let lastUpdated: string | null = null;
