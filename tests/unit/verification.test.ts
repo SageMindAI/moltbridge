@@ -102,17 +102,18 @@ describe('VerificationService', () => {
     });
 
     it('rejects expired challenge (>30s TTL)', () => {
-      vi.useRealTimers();
+      // Use fake timers to simulate expiry
+      const now = Date.now();
+      vi.setSystemTime(now);
+
       const challenge = service.generateChallenge();
 
-      // Manually expire the challenge by manipulating internal state
-      // We'll use a timing trick: generate challenge, wait, try to verify
-      // Since we can't easily wait 30s in a test, we test via the validate path
+      // Advance time past 30s TTL
+      vi.setSystemTime(now + 31_000);
 
-      // Actually, let's test the token expiry instead
-      const result = service.verifySolution('nonexistent-id', 'anything');
+      const result = service.verifySolution(challenge.challenge_id, 'anything');
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Challenge not found or expired');
+      expect(result.error).toBe('Challenge expired');
     });
 
     it('rejects reused challenge (single use)', () => {
@@ -195,6 +196,29 @@ describe('VerificationService', () => {
       const result = service.validateToken(fakeToken);
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Invalid token type');
+    });
+
+    it('rejects token with malformed JSON payload', () => {
+      // Valid base64url but not valid JSON
+      const badPayload = Buffer.from('not json at all!!!').toString('base64url');
+      const fakeToken = `${badPayload}.fakesig`;
+
+      const result = service.validateToken(fakeToken);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Invalid token');
+    });
+
+    it('rejects empty string token', () => {
+      const result = service.validateToken('');
+      expect(result.valid).toBe(false);
+    });
+
+    it('rejects token missing signature part', () => {
+      const payload = { type: 'verification-attestation', verified_at: new Date().toISOString() };
+      const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      // No dot separator = no signature
+      const result = service.validateToken(payloadB64);
+      expect(result.valid).toBe(false);
     });
 
     it('rejects expired token (>1 hour)', () => {
