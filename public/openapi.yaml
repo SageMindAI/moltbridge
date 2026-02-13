@@ -353,6 +353,159 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   # ========================
+  # Outcome Endpoints
+  # ========================
+
+  /outcomes:
+    post:
+      tags: [Authenticated]
+      summary: Create outcome record
+      description: |
+        Create an outcome record for a new broker-mediated introduction.
+        Must be created before bilateral reports can be submitted.
+      operationId: createOutcome
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [introduction_id, requester_id, broker_id, target_id]
+              properties:
+                introduction_id:
+                  type: string
+                  description: Unique identifier for the introduction
+                requester_id:
+                  type: string
+                  description: Agent ID of the requester
+                broker_id:
+                  type: string
+                  description: Agent ID of the broker
+                target_id:
+                  type: string
+                  description: Agent ID of the target
+      responses:
+        '201':
+          description: Outcome created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcome:
+                    $ref: '#/components/schemas/Outcome'
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Outcome already exists for this introduction
+
+  /outcomes/pending:
+    get:
+      tags: [Authenticated]
+      summary: Get outcomes pending resolution
+      description: Returns outcomes that need bilateral verification or admin review.
+      operationId: getPendingOutcomes
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: Pending outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OutcomeSummary'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /outcomes/agent/{agentId}/stats:
+    get:
+      tags: [Authenticated]
+      summary: Get agent outcome statistics
+      description: Returns success rates, total introductions, and anomaly counts for an agent.
+      operationId: getAgentOutcomeStats
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent ID to get stats for
+      responses:
+        '200':
+          description: Agent outcome statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    type: object
+                    properties:
+                      total_outcomes:
+                        type: integer
+                      successful:
+                        type: integer
+                      failed:
+                        type: integer
+                      pending:
+                        type: integer
+                      success_rate:
+                        type: number
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /outcomes/{id}:
+    get:
+      tags: [Authenticated]
+      summary: Get outcome by introduction ID
+      description: Returns the full outcome record including reports and anomaly flags.
+      operationId: getOutcome
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Introduction ID
+      responses:
+        '200':
+          description: Outcome details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcome:
+                    $ref: '#/components/schemas/Outcome'
+        '400':
+          description: Outcome not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ========================
   # IQS Endpoints
   # ========================
 
@@ -1131,6 +1284,70 @@ components:
               format: date-time
         message:
           type: string
+
+    Outcome:
+      type: object
+      properties:
+        introduction_id:
+          type: string
+        requester_id:
+          type: string
+        broker_id:
+          type: string
+        target_id:
+          type: string
+        resolved_status:
+          type: string
+          enum: [pending, successful, failed, no_response, disputed]
+        verification_layer:
+          type: integer
+          description: Current verification layer (0-3)
+        timing_analysis:
+          type: object
+          properties:
+            first_report_delay_ms:
+              type: number
+            bilateral_sync_time_ms:
+              type: number
+        anomaly_flags:
+          type: array
+          items:
+            type: string
+        reports:
+          type: array
+          items:
+            type: object
+            properties:
+              reporter_agent_id:
+                type: string
+              reporter_role:
+                type: string
+              status:
+                type: string
+              evidence_type:
+                type: string
+              reported_at:
+                type: string
+                format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    OutcomeSummary:
+      type: object
+      properties:
+        introduction_id:
+          type: string
+        resolved_status:
+          type: string
+        verification_layer:
+          type: integer
+        anomaly_flags:
+          type: array
+          items:
+            type: string
+        reports_count:
+          type: integer
 
     # ========================
     # IQS Schemas
