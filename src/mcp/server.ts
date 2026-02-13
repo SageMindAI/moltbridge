@@ -15,6 +15,7 @@
  */
 
 import { createApp } from '../app';
+import { sign, getPublicKeyBase64url, base64urlEncode } from '../crypto/keys';
 
 interface MCPToolDefinition {
   name: string;
@@ -107,6 +108,7 @@ const TOOLS: MCPToolDefinition[] = [
 
 // Internal HTTP client using supertest-like approach against the Express app
 import http from 'http';
+import * as crypto from 'crypto';
 
 class InternalClient {
   private server: http.Server;
@@ -130,14 +132,34 @@ class InternalClient {
     });
   }
 
-  async request(method: string, path: string, body?: any): Promise<any> {
+  async request(method: string, path: string, body?: any, auth?: boolean): Promise<any> {
     return new Promise((resolve, reject) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      if (auth) {
+        const agentId = process.env.MOLTBRIDGE_AGENT_ID;
+        if (!agentId) {
+          reject(new Error('MOLTBRIDGE_AGENT_ID required for authenticated MCP requests'));
+          return;
+        }
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const bodyStr = body ? JSON.stringify(body) : '';
+        const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
+        const message = `${method}:${path}:${timestamp}:${bodyHash}`;
+        const messageBytes = new TextEncoder().encode(message);
+        const signature = sign(messageBytes);
+        const signatureB64 = base64urlEncode(signature);
+
+        headers['Authorization'] = `MoltBridge-Ed25519 ${agentId}:${timestamp}:${signatureB64}`;
+      }
+
       const options: http.RequestOptions = {
         hostname: 'localhost',
         port: this.port,
         path,
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       };
 
       const req = http.request(options, (res) => {
@@ -236,23 +258,35 @@ async function main() {
               break;
 
             case 'moltbridge_discover_broker':
-              // Note: In production, this would need auth headers.
-              // MCP server would use its own agent credentials.
-              result = {
-                note: 'Broker discovery requires authentication. Configure MCP server with agent credentials.',
-                hint: 'Set MOLTBRIDGE_AGENT_ID and MOLTBRIDGE_SIGNING_KEY in the MCP server config.',
-                target: args?.target,
-                pricing: await client.request('GET', '/payments/pricing'),
-              };
+              if (!process.env.MOLTBRIDGE_AGENT_ID || !process.env.MOLTBRIDGE_SIGNING_KEY) {
+                result = {
+                  error: 'MCP server not configured with agent credentials.',
+                  hint: 'Set MOLTBRIDGE_AGENT_ID and MOLTBRIDGE_SIGNING_KEY environment variables.',
+                  setup: 'Run: pnpm keys -- --agent-id mcp-server --env',
+                };
+              } else {
+                result = await client.request('POST', '/discover-broker', {
+                  target_identifier: args?.target,
+                  max_hops: args?.max_hops ?? 4,
+                  max_results: args?.max_results ?? 3,
+                }, true);
+              }
               break;
 
             case 'moltbridge_discover_capability':
-              result = {
-                note: 'Capability matching requires authentication. Configure MCP server with agent credentials.',
-                hint: 'Set MOLTBRIDGE_AGENT_ID and MOLTBRIDGE_SIGNING_KEY in the MCP server config.',
-                capabilities: args?.capabilities,
-                pricing: await client.request('GET', '/payments/pricing'),
-              };
+              if (!process.env.MOLTBRIDGE_AGENT_ID || !process.env.MOLTBRIDGE_SIGNING_KEY) {
+                result = {
+                  error: 'MCP server not configured with agent credentials.',
+                  hint: 'Set MOLTBRIDGE_AGENT_ID and MOLTBRIDGE_SIGNING_KEY environment variables.',
+                  setup: 'Run: pnpm keys -- --agent-id mcp-server --env',
+                };
+              } else {
+                result = await client.request('POST', '/discover-capability', {
+                  capabilities: args?.capabilities,
+                  min_trust_score: args?.min_trust ?? 0.0,
+                  max_results: args?.max_results ?? 10,
+                }, true);
+              }
               break;
 
             default:

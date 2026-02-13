@@ -11,6 +11,8 @@
     "seed": "tsx scripts/seed-graph.ts",
     "seed:sandbox": "tsx scripts/seed-sandbox.ts",
     "mcp": "tsx src/mcp/server.ts",
+    "keys": "tsx scripts/generate-keys.ts",
+    "deploy": "tsx scripts/deploy.ts",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
