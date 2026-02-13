@@ -16,6 +16,7 @@ Usage:
 """
 
 from moltbridge.client import MoltBridge
+from moltbridge.async_client import AsyncMoltBridge
 from moltbridge.types import (
     BrokerResult,
     CapabilityMatch,
@@ -37,6 +38,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "MoltBridge",
+    "AsyncMoltBridge",
     "BrokerResult",
     "CapabilityMatch",
     "CredibilityPacket",

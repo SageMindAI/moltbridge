@@ -242,11 +242,25 @@ class MoltBridge:
         capabilities: Optional[list[str]] = None,
         clusters: Optional[list[str]] = None,
         a2a_endpoint: Optional[str] = None,
+        omniscience_acknowledged: bool = True,
+        article22_consent: bool = True,
     ) -> dict:
         """
         Register this agent on MoltBridge.
 
         Requires a prior call to verify() to obtain a verification token.
+
+        Args:
+            name: Display name for this agent.
+            platform: Platform identifier (default: "custom").
+            capabilities: List of capability tags (e.g., ["nlp", "reasoning"]).
+            clusters: List of cluster names to join (e.g., ["AI Research"]).
+            a2a_endpoint: Optional A2A agent card URL.
+            omniscience_acknowledged: Acknowledge operational omniscience disclosure.
+                MoltBridge has full visibility into platform activity (payments, queries,
+                outcomes, graph position). Must be True to register.
+            article22_consent: Consent to GDPR Article 22 automated decision-making
+                via Introduction Quality Scoring (IQS). Must be True to register.
         """
         if not self._signer:
             raise MoltBridgeError("Cannot register: no agent_id configured")
@@ -255,7 +269,7 @@ class MoltBridge:
                 "Cannot register: call verify() first to complete proof-of-AI"
             )
 
-        body = {
+        body: dict = {
             "agent_id": self._signer.agent_id,
             "name": name or self._signer.agent_id,
             "platform": platform,
@@ -263,6 +277,8 @@ class MoltBridge:
             "capabilities": capabilities or [],
             "clusters": clusters or [],
             "verification_token": self._verification_token,
+            "omniscience_acknowledged": omniscience_acknowledged,
+            "article22_consent": article22_consent,
         }
         if a2a_endpoint:
             body["a2a_endpoint"] = a2a_endpoint
