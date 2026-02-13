@@ -5,12 +5,14 @@
  * Coverage target: 100% (security boundary)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   isSafeString,
   isValidAgentId,
   isValidCapabilityTag,
   validateCapabilities,
+  bodySizeLimit,
+  requireFields,
 } from '../../src/middleware/validate';
 
 describe('Validation', () => {
@@ -164,6 +166,112 @@ describe('Validation', () => {
       expect(validateCapabilities(['valid', '<script>'])).toBeNull();
       expect(validateCapabilities(['valid', 'UPPERCASE'])).toBeNull();
       expect(validateCapabilities(['valid', 123])).toBeNull();
+    });
+  });
+
+  describe('bodySizeLimit()', () => {
+    it('passes when content-length is within limit', () => {
+      const middleware = bodySizeLimit(1024);
+      const req = { headers: { 'content-length': '500' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it('throws when content-length exceeds limit', () => {
+      const middleware = bodySizeLimit(1024);
+      const req = { headers: { 'content-length': '2048' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      expect(() => middleware(req, res, next)).toThrow(/too large/);
+    });
+
+    it('passes when content-length equals limit', () => {
+      const middleware = bodySizeLimit(1024);
+      const req = { headers: { 'content-length': '1024' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('passes when no content-length header', () => {
+      const middleware = bodySizeLimit(1024);
+      const req = { headers: {} } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalled();
+    });
+  });
+
+  describe('requireFields()', () => {
+    it('passes when all required fields present', () => {
+      const middleware = requireFields('name', 'email');
+      const req = { body: { name: 'Dawn', email: 'dawn@ai' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it('throws when a field is missing', () => {
+      const middleware = requireFields('name', 'email');
+      const req = { body: { name: 'Dawn' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      expect(() => middleware(req, res, next)).toThrow(/email/);
+    });
+
+    it('throws when a field is null', () => {
+      const middleware = requireFields('name');
+      const req = { body: { name: null } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      expect(() => middleware(req, res, next)).toThrow(/name/);
+    });
+
+    it('throws when a field is undefined', () => {
+      const middleware = requireFields('data');
+      const req = { body: { data: undefined } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      expect(() => middleware(req, res, next)).toThrow(/data/);
+    });
+
+    it('accepts falsy but non-null/undefined values', () => {
+      const middleware = requireFields('count', 'flag', 'text');
+      const req = { body: { count: 0, flag: false, text: '' } } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('works with no required fields', () => {
+      const middleware = requireFields();
+      const req = { body: {} } as any;
+      const res = {} as any;
+      const next = vi.fn();
+
+      middleware(req, res, next);
+
+      expect(next).toHaveBeenCalled();
     });
   });
 });
