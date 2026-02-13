@@ -37,6 +37,10 @@ export function generateTestKeyPair(): TestKeyPair {
  * Sign a request for the MoltBridge auth scheme.
  * Returns the full Authorization header value.
  */
+// Counter to offset timestamps and avoid replay detection in tests.
+// Stays within ±30s of real time (well within the 60s freshness window).
+let _tsOffset = 0;
+
 export function signRequest(
   keyPair: TestKeyPair,
   agentId: string,
@@ -44,7 +48,10 @@ export function signRequest(
   path: string,
   body?: object,
 ): string {
-  const timestamp = Math.floor(Date.now() / 1000);
+  // Each call gets a unique timestamp to prevent replay detection.
+  // Offset wraps at ±25 to stay within the 60s freshness window.
+  const offset = (_tsOffset++) % 50 - 25;
+  const timestamp = Math.floor(Date.now() / 1000) + offset;
   const bodyStr = body ? JSON.stringify(body) : '';
   const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
   const message = `${method}:${path}:${timestamp}:${bodyHash}`;

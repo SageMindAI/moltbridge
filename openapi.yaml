@@ -30,6 +30,8 @@ tags:
     description: GDPR-compliant consent management
   - name: Payments
     description: USDC micropayment ledger and broker commissions
+  - name: Outcomes
+    description: Bilateral outcome verification with timing analysis and anomaly detection
 
 security: []
 
@@ -320,13 +322,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ========================
+  # Outcome Verification Endpoints
+  # ========================
+
+  /outcomes:
+    post:
+      tags: [Outcomes]
+      summary: Create outcome record
+      description: |
+        Create a new outcome record for a broker-mediated introduction.
+        Must be created before reports can be submitted.
+      operationId: createOutcome
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [introduction_id, requester_id, broker_id, target_id]
+              properties:
+                introduction_id:
+                  type: string
+                  description: Unique identifier for the introduction
+                requester_id:
+                  type: string
+                  description: Agent ID of the requester
+                broker_id:
+                  type: string
+                  description: Agent ID of the broker
+                target_id:
+                  type: string
+                  description: Agent ID of the target
+      responses:
+        '201':
+          description: Outcome record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutcomeResponse'
+        '400':
+          description: Validation error (missing fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Outcome already exists for this introduction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /report-outcome:
     post:
-      tags: [Authenticated]
-      summary: Report introduction outcome
+      tags: [Outcomes]
+      summary: Submit bilateral outcome report
       description: |
-        Report the outcome of a broker-mediated introduction.
-        Used to track success rates for trust score improvement.
+        Submit an outcome report from a party in the introduction.
+        Supports bilateral verification — when both parties report,
+        the system resolves the outcome and performs timing analysis
+        and anomaly detection.
       operationId: reportOutcome
       security:
         - ed25519Auth: []
@@ -338,13 +398,105 @@ paths:
               $ref: '#/components/schemas/OutcomeReportRequest'
       responses:
         '201':
-          description: Outcome recorded
+          description: Report accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OutcomeReportResponse'
+                $ref: '#/components/schemas/OutcomeResponse'
         '400':
-          description: Validation error
+          description: Validation error (invalid status, evidence_type, or missing outcome)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate report from same role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /outcomes/pending:
+    get:
+      tags: [Outcomes]
+      summary: List outcomes needing resolution
+      description: |
+        Returns outcomes with disputed status or anomaly flags
+        that need review or higher-layer verification.
+      operationId: getOutcomesPending
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: List of pending outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OutcomeSummary'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /outcomes/agent/{agentId}/stats:
+    get:
+      tags: [Outcomes]
+      summary: Get agent outcome statistics
+      description: |
+        Returns aggregated outcome statistics for a given agent,
+        including success rate, total, and breakdown by status.
+      operationId: getAgentOutcomeStats
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent outcome statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    $ref: '#/components/schemas/AgentOutcomeStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /outcomes/{id}:
+    get:
+      tags: [Outcomes]
+      summary: Get outcome by introduction ID
+      description: Returns the full outcome record for a given introduction.
+      operationId: getOutcome
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Outcome record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutcomeResponse'
+        '400':
+          description: Outcome not found
           content:
             application/json:
               schema:
@@ -1105,14 +1257,20 @@ components:
       properties:
         introduction_id:
           type: string
+          description: ID of the outcome to report on
         status:
           type: string
-          enum: [attempted, acknowledged, successful, failed, disputed]
+          enum: [successful, failed]
+          description: Outcome status from the reporter's perspective
         evidence_type:
           type: string
-          enum: [target_confirmation, requester_report, timeout]
+          enum: [requester_report, target_report, broker_report]
+          description: Type of evidence being submitted
+        notes:
+          type: string
+          description: Optional notes about the outcome
 
-    OutcomeReportResponse:
+    OutcomeResponse:
       type: object
       properties:
         outcome:
@@ -1120,17 +1278,68 @@ components:
           properties:
             introduction_id:
               type: string
-            status:
+            requester_id:
               type: string
-            evidence_type:
+            broker_id:
               type: string
-            submitted_by:
+            target_id:
               type: string
-            submitted_at:
+            resolved_status:
               type: string
-              format: date-time
-        message:
+              nullable: true
+              enum: [successful, failed, disputed, null]
+            verification_layer:
+              type: integer
+              description: Current verification layer (0-4)
+            timing_analysis:
+              type: object
+              nullable: true
+              properties:
+                pattern:
+                  type: string
+                  enum: [single_report, normal, fast_coordination, suspicious_sync, target_first]
+                delta_seconds:
+                  type: number
+            anomaly_flags:
+              type: array
+              items:
+                type: string
+            reports_count:
+              type: integer
+
+    OutcomeSummary:
+      type: object
+      properties:
+        introduction_id:
           type: string
+        resolved_status:
+          type: string
+        verification_layer:
+          type: integer
+        anomaly_flags:
+          type: array
+          items:
+            type: string
+        reports_count:
+          type: integer
+
+    AgentOutcomeStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        successful:
+          type: integer
+        failed:
+          type: integer
+        disputed:
+          type: integer
+        pending:
+          type: integer
+        success_rate:
+          type: number
+          format: float
+          description: Ratio of successful to total (0.0 - 1.0)
 
     # ========================
     # IQS Schemas
