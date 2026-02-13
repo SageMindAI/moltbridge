@@ -19,12 +19,25 @@ import type { AuthenticatedRequest } from '../types';
 const replayCache = new Map<string, number>();
 
 // Clean up expired entries every 60 seconds
-setInterval(() => {
+const replayCacheCleanup = setInterval(() => {
   const now = Date.now();
   for (const [key, expiry] of replayCache) {
     if (expiry < now) replayCache.delete(key);
   }
 }, 60_000);
+
+// Prevent interval from keeping Node.js alive in tests
+if (typeof replayCacheCleanup.unref === 'function') {
+  replayCacheCleanup.unref();
+}
+
+/**
+ * Clear the replay cache. Used in tests to prevent replay-detection
+ * false positives when multiple requests sign the same body within 1 second.
+ */
+export function clearReplayCache(): void {
+  replayCache.clear();
+}
 
 /**
  * Auth middleware. Attaches `req.auth` with { agent_id, timestamp }.

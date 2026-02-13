@@ -11,11 +11,9 @@ import * as path from 'path';
 // Load .env from project root
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-import express from 'express';
-import { createRoutes } from './api/routes';
+import { createApp } from './app';
 import { verifyConnectivity, closeDriver } from './db/neo4j';
 import { getSigningKeyPair } from './crypto/keys';
-import { bodySizeLimit } from './middleware/validate';
 
 const PORT = process.env.PORT || 3040;
 
@@ -37,13 +35,7 @@ async function main() {
   }
 
   // Set up Express
-  const app = express();
-  app.use(express.json({ limit: '50kb' }));
-  app.use(bodySizeLimit(50 * 1024)); // 50KB body limit
-
-  // Mount routes
-  const routes = createRoutes();
-  app.use('/', routes);
+  const app = createApp();
 
   // Start server
   const server = app.listen(PORT, () => {

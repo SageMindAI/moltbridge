@@ -15,6 +15,10 @@ import { CredibilityService } from '../services/credibility';
 import { TrustService } from '../services/trust';
 import { VerificationService } from '../services/verification';
 import { RegistrationService } from '../services/registration';
+import { IQSService, type IQSComponents } from '../services/iqs';
+import { WebhookService, type WebhookEventType } from '../services/webhooks';
+import { ConsentService, CONSENT_PURPOSES, CONSENT_DESCRIPTIONS, type ConsentPurpose } from '../services/consent';
+import { PaymentService, type PaymentType } from '../services/payments';
 import type { AuthenticatedRequest } from '../types';
 
 const startTime = Date.now();
@@ -28,6 +32,10 @@ export function createRoutes(): Router {
   const trustService = new TrustService();
   const verificationService = new VerificationService();
   const registrationService = new RegistrationService();
+  const iqsService = new IQSService();
+  const webhookService = new WebhookService();
+  const consentService = new ConsentService();
+  const paymentService = new PaymentService();
 
   // Async route wrapper
   const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
@@ -324,6 +332,239 @@ export function createRoutes(): Router {
       message: 'Outcome recorded. Full outcome verification available in Phase 1.5.',
     });
   }));
+
+  // ========================
+  // IQS Endpoints
+  // ========================
+
+  // POST /iqs/evaluate — Evaluate introduction quality (band-based, anti-oracle)
+  router.post('/iqs/evaluate', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+
+    // Require IQS consent
+    if (!consentService.hasConsent(auth.agent_id, 'iqs_scoring')) {
+      throw Errors.validationError('IQS scoring requires iqs_scoring consent. Grant consent via POST /consent/grant.');
+    }
+
+    const { target_id, requester_capabilities, target_capabilities, broker_success_count, broker_total_intros, hops } = req.body;
+
+    if (!target_id) {
+      throw Errors.validationError('Missing target_id');
+    }
+
+    // Compute component scores
+    const components: IQSComponents = {
+      relevance_score: iqsService.computeRelevance(
+        requester_capabilities || [],
+        target_capabilities || [],
+      ),
+      requester_credibility: iqsService.mapCredibility(0.5), // Default; production reads from graph
+      broker_confidence: iqsService.computeBrokerConfidence(
+        broker_success_count || 0,
+        broker_total_intros || 0,
+      ),
+      path_proximity: iqsService.computePathProximity(hops || 2),
+      novelty_score: iqsService.computeNovelty(target_id, auth.agent_id),
+    };
+
+    const result = iqsService.evaluate(components, target_id, auth.agent_id);
+
+    // Emit webhook event
+    webhookService.emit({
+      id: `iqs-${Date.now()}`,
+      type: 'iqs_guidance',
+      timestamp: new Date().toISOString(),
+      payload: { target_id, requester_id: auth.agent_id, band: result.band },
+    });
+
+    res.json(result);
+  }));
+
+  // ========================
+  // Webhook Endpoints
+  // ========================
+
+  // POST /webhooks/register — Register a webhook endpoint
+  router.post('/webhooks/register', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { endpoint_url, event_types } = req.body;
+
+    if (!endpoint_url || !event_types || !Array.isArray(event_types)) {
+      throw Errors.validationError('Missing endpoint_url or event_types array');
+    }
+
+    const validTypes: WebhookEventType[] = ['introduction_request', 'attestation_received', 'trust_score_changed', 'outcome_reported', 'iqs_guidance'];
+    for (const t of event_types) {
+      if (!validTypes.includes(t)) {
+        throw Errors.validationError(`Invalid event type: ${t}`);
+      }
+    }
+
+    const registration = webhookService.register(auth.agent_id, endpoint_url, event_types);
+
+    res.status(201).json({
+      registration: {
+        agent_id: registration.agent_id,
+        endpoint_url: registration.endpoint_url,
+        event_types: registration.event_types,
+        active: registration.active,
+      },
+      secret: registration.secret, // Only returned once — agent must store it
+    });
+  }));
+
+  // DELETE /webhooks/unregister — Remove a webhook endpoint
+  router.delete('/webhooks/unregister', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { endpoint_url } = req.body;
+
+    if (!endpoint_url) {
+      throw Errors.validationError('Missing endpoint_url');
+    }
+
+    const removed = webhookService.unregister(auth.agent_id, endpoint_url);
+
+    res.json({ removed });
+  }));
+
+  // GET /webhooks — List agent's webhook registrations
+  router.get('/webhooks', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const registrations = webhookService.getRegistrations(auth.agent_id);
+
+    res.json({
+      registrations: registrations.map(r => ({
+        endpoint_url: r.endpoint_url,
+        event_types: r.event_types,
+        active: r.active,
+        last_delivery_at: r.last_delivery_at,
+        failure_count: r.failure_count,
+      })),
+    });
+  }));
+
+  // ========================
+  // Consent Endpoints (GDPR)
+  // ========================
+
+  // GET /consent — Get consent status
+  router.get('/consent', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const status = consentService.getStatus(auth.agent_id);
+
+    res.json({
+      ...status,
+      descriptions: CONSENT_DESCRIPTIONS,
+    });
+  }));
+
+  // POST /consent/grant — Grant consent for a purpose
+  router.post('/consent/grant', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { purpose } = req.body;
+
+    if (!purpose || !CONSENT_PURPOSES.includes(purpose)) {
+      throw Errors.validationError(`Invalid purpose. Must be one of: ${CONSENT_PURPOSES.join(', ')}`);
+    }
+
+    const record = consentService.grant(auth.agent_id, purpose, 'api-grant');
+
+    res.json({ consent: record });
+  }));
+
+  // POST /consent/withdraw — Withdraw consent
+  router.post('/consent/withdraw', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { purpose } = req.body;
+
+    if (!purpose || !CONSENT_PURPOSES.includes(purpose)) {
+      throw Errors.validationError(`Invalid purpose. Must be one of: ${CONSENT_PURPOSES.join(', ')}`);
+    }
+
+    const record = consentService.withdraw(auth.agent_id, purpose, 'api-withdraw');
+
+    res.json({ consent: record });
+  }));
+
+  // GET /consent/export — Export all consent data (GDPR Article 20)
+  router.get('/consent/export', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const data = consentService.exportData(auth.agent_id);
+
+    res.json(data);
+  }));
+
+  // DELETE /consent/erase — Right to erasure (GDPR Article 17)
+  router.delete('/consent/erase', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const erased = consentService.eraseData(auth.agent_id);
+
+    res.json({ erased, message: erased ? 'All consent data erased.' : 'No consent data found.' });
+  }));
+
+  // ========================
+  // Payment Endpoints
+  // ========================
+
+  // POST /payments/account — Create a payment account
+  router.post('/payments/account', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { tier } = req.body;
+
+    try {
+      const account = paymentService.createAccount(auth.agent_id, tier || 'standard');
+      res.status(201).json({ account });
+    } catch (err: any) {
+      if (err.message.includes('already exists')) {
+        throw Errors.conflict('Payment account already exists');
+      }
+      throw err;
+    }
+  }));
+
+  // GET /payments/balance — Get balance
+  router.get('/payments/balance', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const balance = paymentService.getBalance(auth.agent_id);
+
+    if (!balance) {
+      throw Errors.validationError('No payment account. Create one via POST /payments/account.');
+    }
+
+    res.json({ balance });
+  }));
+
+  // POST /payments/deposit — Deposit funds (Phase 1: simulated)
+  router.post('/payments/deposit', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { amount } = req.body;
+
+    if (typeof amount !== 'number' || amount <= 0) {
+      throw Errors.validationError('amount must be a positive number');
+    }
+
+    const entry = paymentService.deposit(auth.agent_id, amount);
+
+    res.json({
+      entry,
+      message: 'Phase 1: Simulated deposit. Phase 2 will use on-chain USDC.',
+    });
+  }));
+
+  // GET /payments/history — Transaction history
+  router.get('/payments/history', requireAuth, asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const history = paymentService.getHistory(auth.agent_id, Math.min(limit, 100));
+
+    res.json({ history });
+  }));
+
+  // GET /payments/pricing — Current pricing
+  router.get('/payments/pricing', (_req, res) => {
+    res.json({ pricing: paymentService.getPricing() });
+  });
 
   // ========================
   // Error Handler (must be last)
