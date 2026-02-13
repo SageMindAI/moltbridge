@@ -475,16 +475,17 @@ export function createRoutes(): Router {
 
   // GET /outcomes/agent/:agentId/stats — Get agent outcome statistics
   router.get('/outcomes/agent/:agentId/stats', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
-    const stats = outcomeService.getAgentStats(req.params.agentId);
+    const stats = outcomeService.getAgentStats(req.params.agentId as string);
     res.json({ stats });
   }));
 
   // GET /outcomes/:id — Get outcome by introduction ID
   // NOTE: Must be AFTER specific routes (/pending, /agent/:id/stats)
   router.get('/outcomes/:id', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
-    const outcome = outcomeService.getOutcome(req.params.id);
+    const id = req.params.id as string;
+    const outcome = outcomeService.getOutcome(id);
     if (!outcome) {
-      throw Errors.validationError(`Outcome not found: ${req.params.id}`);
+      throw Errors.validationError(`Outcome not found: ${id}`);
     }
     res.json({ outcome });
   }));
