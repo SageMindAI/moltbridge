@@ -1,0 +1,57 @@
+# MoltBridge — Local development stack
+# Usage: docker compose up
+# With seed data: docker compose --profile seed up
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/moltbridge-dev
+      NEO4J_PLUGINS: '[]'
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p moltbridge-dev 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  moltbridge:
+    build: .
+    ports:
+      - "3040:3040"
+    environment:
+      PORT: 3040
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: moltbridge-dev
+      NODE_ENV: production
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3040/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Optional: seed test data
+  seed:
+    build: .
+    profiles: ["seed"]
+    entrypoint: ["node", "dist/scripts/seed-sandbox.js"]
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: moltbridge-dev
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+volumes:
+  neo4j-data:

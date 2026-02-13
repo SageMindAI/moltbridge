@@ -65,9 +65,10 @@ export class CredibilityService {
       const requesterCaps: string[] = record.get('requester_caps') || [];
       const brokerCaps: string[] = record.get('broker_caps') || [];
       const brokerClusters: string[] = record.get('broker_clusters') || [];
-      const attestationCount = typeof record.get('attestation_count') === 'object'
-        ? (record.get('attestation_count') as any).toNumber()
-        : record.get('attestation_count') ?? 0;
+      const rawAttestation = record.get('attestation_count');
+      const attestationCount = rawAttestation && typeof rawAttestation === 'object' && 'toNumber' in rawAttestation
+        ? (rawAttestation as any).toNumber()
+        : rawAttestation ?? 0;
 
       // Compute shared interests (capability intersection)
       const sharedInterests = requesterCaps.filter(c => brokerCaps.includes(c));
