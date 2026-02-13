@@ -347,6 +347,42 @@ describe('OutcomeService', () => {
 
       expect(outcome.anomaly_flags).toContain('ring_pattern');
     });
+
+    it('detects high success rate anomaly (>95% success with 20+ outcomes)', () => {
+      const now = new Date();
+      const requester = 'high-success-requester';
+
+      // Create 21 outcomes for the same requester — all successful
+      for (let i = 0; i < 21; i++) {
+        const introId = `high-succ-intro-${i}`;
+        service.createOutcome(introId, requester, `broker-${i}`, `target-${i}`);
+
+        // Requester report
+        service.submitReport({
+          introduction_id: introId,
+          reporter_agent_id: requester,
+          reporter_role: 'requester',
+          status: 'successful',
+          evidence_type: 'requester_report',
+          reported_at: new Date(now.getTime() + i * 3600_000).toISOString(),
+        });
+
+        // Target report (separated by >60s to avoid instant_sync)
+        service.submitReport({
+          introduction_id: introId,
+          reporter_agent_id: `target-${i}`,
+          reporter_role: 'target',
+          status: 'successful',
+          evidence_type: 'target_report',
+          reported_at: new Date(now.getTime() + i * 3600_000 + 3600_000).toISOString(),
+        });
+      }
+
+      // The last outcome should have the high_success_rate flag
+      const lastOutcome = service.getOutcome('high-succ-intro-20');
+      expect(lastOutcome).not.toBeNull();
+      expect(lastOutcome!.anomaly_flags).toContain('high_success_rate');
+    });
   });
 
   describe('getOutcome()', () => {

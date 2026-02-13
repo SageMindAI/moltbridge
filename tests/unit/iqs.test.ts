@@ -6,7 +6,7 @@
  * Coverage target: 100% (GDPR Article 22 auditability)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   IQSService,
   IQS_WEIGHTS,
@@ -247,6 +247,40 @@ describe('IQS Service', () => {
       const lowDemand = service.getThreshold({ demand_multiplier: 0.5, noise_range: 0 });
       const highDemand = service.getThreshold({ demand_multiplier: 5.0, noise_range: 0 });
       expect(highDemand).toBeGreaterThan(lowDemand);
+    });
+
+    it('resets query counter after 1 hour (getDemandMultiplier internal)', () => {
+      vi.useFakeTimers();
+      const baseTime = Date.now();
+      vi.setSystemTime(baseTime);
+
+      // Create fresh service with fake timers
+      const timedService = new IQSService();
+
+      // Call evaluate to increment internal queryCount24h
+      timedService.evaluate({
+        relevance: 0.8,
+        requester_credibility: 0.7,
+        broker_confidence: 0.6,
+        path_proximity: 0.5,
+        novelty: 0.9,
+      });
+
+      // Before 1 hour: getDemandMultiplier should reflect accumulated queries
+      // Get threshold without demand_multiplier to trigger getDemandMultiplier
+      const before = timedService.getThreshold({ noise_range: 0 });
+
+      // Advance past 1 hour
+      vi.setSystemTime(baseTime + 61 * 60 * 1000);
+
+      // After 1 hour: counter should reset, demand multiplier = 0
+      const after = timedService.getThreshold({ noise_range: 0 });
+
+      // After reset, demand multiplier is 0 (below 1), so no adjustment
+      // The threshold should be at or near base (0.65)
+      expect(after).toBeCloseTo(0.65, 2);
+
+      vi.useRealTimers();
     });
   });
 
