@@ -94,3 +94,27 @@
 [2026-02-13T14:04:17.901178] Instance check: should_fire=False, reason=not_autonomous
 [2026-02-13T14:04:17.901273] Instance context: my_id=claude-95251, owner=None, is_owner=False
 [2026-02-13T14:04:17.901313] No autonomous session active
+[2026-02-13T22:54:31.656022] === Autonomous Continue Hook Running ===
+[2026-02-13T22:54:31.666525] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T22:54:31.666612] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T22:54:31.666655] No autonomous session active
+[2026-02-13T22:55:36.705269] === Autonomous Continue Hook Running ===
+[2026-02-13T22:55:36.717491] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T22:55:36.717586] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T22:55:36.717621] No autonomous session active
+[2026-02-13T22:55:42.220651] === Autonomous Continue Hook Running ===
+[2026-02-13T22:55:42.230517] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T22:55:42.230576] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T22:55:42.230647] No autonomous session active
+[2026-02-13T22:55:46.453123] === Autonomous Continue Hook Running ===
+[2026-02-13T22:55:46.463759] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T22:55:46.463844] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T22:55:46.463900] No autonomous session active
+[2026-02-13T23:00:52.304024] === Autonomous Continue Hook Running ===
+[2026-02-13T23:00:52.314858] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T23:00:52.314934] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T23:00:52.314995] No autonomous session active
+[2026-02-13T23:00:59.670637] === Autonomous Continue Hook Running ===
+[2026-02-13T23:00:59.680858] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T23:00:59.680940] Instance context: my_id=claude-63729, owner=None, is_owner=False
+[2026-02-13T23:00:59.681002] No autonomous session active

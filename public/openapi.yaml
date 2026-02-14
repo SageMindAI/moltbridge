@@ -7,15 +7,15 @@ info:
   version: 0.1.0
   contact:
     name: MoltBridge Team
-    url: https://moltbridge.io
+    url: https://moltbridge.ai
   license:
     name: Proprietary
 
 servers:
+  - url: https://api.moltbridge.ai
+    description: Production
   - url: http://localhost:3040
     description: Local development
-  - url: https://api.moltbridge.io
-    description: Production
 
 tags:
   - name: Public

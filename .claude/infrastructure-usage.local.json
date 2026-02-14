@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Infrastructure usage metrics. Tracks skill invocations and script executions.",
-  "last_updated": "2026-02-13T00:41:40.582429",
+  "last_updated": "2026-02-13T22:54:17.187233",
   "skills": {
     "reflect-quick": {
       "total_invocations": 1,
@@ -18,11 +18,41 @@
       ]
     }
   },
-  "scripts": {},
+  "scripts": {
+    "telegram-reply.py": {
+      "total_invocations": 5,
+      "last_invoked": "2026-02-13T22:54:17.187203",
+      "sessions": [
+        "unknown"
+      ],
+      "recent": [
+        {
+          "timestamp": "2026-02-13T22:27:26.197560",
+          "session_id": "unknown"
+        },
+        {
+          "timestamp": "2026-02-13T22:29:51.103380",
+          "session_id": "unknown"
+        },
+        {
+          "timestamp": "2026-02-13T22:47:47.760925",
+          "session_id": "unknown"
+        },
+        {
+          "timestamp": "2026-02-13T22:49:43.897824",
+          "session_id": "unknown"
+        },
+        {
+          "timestamp": "2026-02-13T22:54:17.187209",
+          "session_id": "unknown"
+        }
+      ]
+    }
+  },
   "summary": {
     "total_skill_invocations": 1,
-    "total_script_executions": 0,
+    "total_script_executions": 5,
     "unique_skills_used": 1,
-    "unique_scripts_used": 0
+    "unique_scripts_used": 1
   }
 }

@@ -403,3 +403,112 @@
   "checkpoints_since_reflection": 2,
   "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
 }
+[2026-02-13T22:54:31.643937] === Metrics Collector Running ===
+[2026-02-13T22:54:31.644697] New session detected. Sessions: 7
+[2026-02-13T22:54:31.644755] Tool calls: 24
+[2026-02-13T22:54:31.645153] Metrics saved: {
+  "tool_calls_since_reflection": 24,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T22:54:31.644796",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T12:24:49.967464",
+  "checkpoints_since_reflection": 2,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}
+[2026-02-13T22:55:36.691872] === Metrics Collector Running ===
+[2026-02-13T22:55:36.692040] Tool calls: 25
+[2026-02-13T22:55:36.692344] Metrics saved: {
+  "tool_calls_since_reflection": 25,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T22:55:36.692064",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T22:54:31.664691",
+  "checkpoints_since_reflection": 3,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}
+[2026-02-13T22:55:42.209724] === Metrics Collector Running ===
+[2026-02-13T22:55:42.209905] Tool calls: 26
+[2026-02-13T22:55:42.210110] Metrics saved: {
+  "tool_calls_since_reflection": 26,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T22:55:42.209928",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T22:54:31.664691",
+  "checkpoints_since_reflection": 3,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}
+[2026-02-13T22:55:46.441097] === Metrics Collector Running ===
+[2026-02-13T22:55:46.441281] Tool calls: 27
+[2026-02-13T22:55:46.441485] Metrics saved: {
+  "tool_calls_since_reflection": 27,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T22:55:46.441305",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T22:54:31.664691",
+  "checkpoints_since_reflection": 3,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}
+[2026-02-13T23:00:52.291627] === Metrics Collector Running ===
+[2026-02-13T23:00:52.291805] Tool calls: 28
+[2026-02-13T23:00:52.292021] Metrics saved: {
+  "tool_calls_since_reflection": 28,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T23:00:52.291837",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T22:54:31.664691",
+  "checkpoints_since_reflection": 3,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}
+[2026-02-13T23:00:59.656781] === Metrics Collector Running ===
+[2026-02-13T23:00:59.656950] Tool calls: 29
+[2026-02-13T23:00:59.657148] Metrics saved: {
+  "tool_calls_since_reflection": 29,
+  "sessions_since_reflection": 7,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T23:00:59.656976",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T23:00:52.310576",
+  "checkpoints_since_reflection": 4,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
+}

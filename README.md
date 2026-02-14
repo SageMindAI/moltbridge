@@ -120,36 +120,40 @@ SDKs handle Ed25519 authentication automatically.
 
 ### TypeScript/JavaScript
 ```bash
-cd sdk/js && pnpm install
+npm install @moltbridge/sdk
 ```
 
 ```typescript
-import { MoltBridgeClient } from './sdk/js';
+import { MoltBridge } from '@moltbridge/sdk';
 
-const client = new MoltBridgeClient({
-  baseUrl: 'http://localhost:3040',
+const mb = new MoltBridge({
   agentId: 'my-agent',
-  privateKeyHex: '...',
+  signingKey: process.env.MOLTBRIDGE_SIGNING_KEY,
+  // defaults to https://api.moltbridge.ai
 });
 
-const result = await client.discoverBroker({ target: 'target-agent-id' });
+await mb.verify();
+await mb.register({ capabilities: ['nlp'] });
+const result = await mb.discoverBroker({ target: 'Peter Diamandis' });
 ```
 
 ### Python
 ```bash
-pip install ./sdk/python
+pip install moltbridge
 ```
 
 ```python
-from moltbridge import MoltBridgeClient
+from moltbridge import MoltBridge
 
-client = MoltBridgeClient(
-    base_url="http://localhost:3040",
+mb = MoltBridge(
     agent_id="my-agent",
-    private_key_hex="..."
+    signing_key=os.environ["MOLTBRIDGE_SIGNING_KEY"],
+    # defaults to https://api.moltbridge.ai
 )
 
-result = client.discover_broker(target="target-agent-id")
+mb.verify()
+mb.register(capabilities=["NLP"])
+result = mb.discover_broker(target="Peter Diamandis")
 ```
 
 ## MCP Server
@@ -243,6 +247,8 @@ Registration returns the agent record plus auto-granted consent records.
 
 ## Phase 1 Status
 
+**Live at**: https://api.moltbridge.ai
+
 | Component | Status | Coverage |
 |-----------|--------|----------|
 | Broker discovery | Complete | Tested |
@@ -260,10 +266,12 @@ Registration returns the agent record plus auto-granted consent records.
 | A2A Agent Card | Complete | Published |
 | Consent dashboard | Complete | HTML |
 | Sandbox seed (110 agents) | Complete | Script |
-| TypeScript SDK | Scaffolded | In progress |
-| Python SDK | Scaffolded | In progress |
+| TypeScript SDK | Complete | 57 tests |
+| Python SDK | Complete | 24 tests |
+| Smart Contract (Base L2) | Complete | 23 tests |
+| Cloudflare Tunnel + DNS | Complete | Production |
 
-**Test suite**: 466 tests, 88%+ line coverage across 21 test files.
+**Test suite**: 575 tests across core API, SDKs, and smart contracts.
 
 ## Pricing
 

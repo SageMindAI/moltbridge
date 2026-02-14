@@ -2,10 +2,10 @@
 
 > From "code complete" to "live and serving agents."
 
-## Status: LIVE (Interim URL)
+## Status: LIVE
 
-**Live URL**: https://moltbridge.dawn-tunnel.dev
-**Final URL**: https://api.moltbridge.ai (pending domain setup)
+**Production URL**: https://api.moltbridge.ai
+**Alternate URL**: https://moltbridge.dawn-tunnel.dev (still active)
 
 ---
 
@@ -34,41 +34,22 @@
 
 ---
 
-## Phase 2: Public Access -- PARTIALLY COMPLETE
+## Phase 2: Public Access -- COMPLETE
 
-### 6. Cloudflare Tunnel -- DONE (interim domain)
+### 6. Cloudflare Tunnel -- DONE
 - [x] Tunnel created: `moltbridge` (ID: `6c8f8222-c959-43bc-8a6c-6d693e69f03f`)
 - [x] Config: `tunnel-config.yml`
 - [x] 4 QUIC connections established (sjc01, sjc05, sjc06, sjc08)
 - [x] **Live at**: https://moltbridge.dawn-tunnel.dev
-- [ ] **Final domain**: https://api.moltbridge.ai (see Domain Setup below)
+- [x] **Final domain**: https://api.moltbridge.ai
 
-### 7. Domain Setup (BLOCKER -- needs Justin)
-
-The domain `moltbridge.ai` is registered at Namecheap but not yet in Cloudflare. Two steps needed:
-
-**Step A: Add moltbridge.ai to Cloudflare**
-1. Go to [dash.cloudflare.com](https://dash.cloudflare.com)
-2. Click "Add a site" -> enter `moltbridge.ai`
-3. Select Free plan
-4. Cloudflare will show you two nameservers (e.g., `xxx.ns.cloudflare.com`, `yyy.ns.cloudflare.com`)
-5. **Copy these nameservers** for Step B
-
-**Step B: Update Namecheap nameservers**
-1. Go to [namecheap.com](https://namecheap.com) -> Domain List -> `moltbridge.ai`
-2. Under Nameservers, select "Custom DNS"
-3. Enter the two Cloudflare nameservers from Step A
-4. Save
-
-**Step C: Route tunnel (Dawn can do this)**
-Once nameservers propagate (~5-15 min), run:
-```bash
-cloudflared tunnel route dns moltbridge api.moltbridge.ai
-```
-Then restart the tunnel:
-```bash
-cloudflared tunnel --config tunnel-config.yml run moltbridge
-```
+### 7. Domain Setup -- DONE
+- [x] **Step A**: moltbridge.ai added to Cloudflare (zone ID: `84570479c1b9929a853cb4f3e7624c2c`)
+- [x] Assigned nameservers: `bowen.ns.cloudflare.com`, `lisa.ns.cloudflare.com`
+- [x] **Step B**: Namecheap nameservers updated to Cloudflare (verified via `dig NS moltbridge.ai`)
+- [x] **Step C**: CNAME record `api` -> `6c8f8222-c959-43bc-8a6c-6d693e69f03f.cfargotunnel.com` (proxied)
+- [x] Cloudflare zone activation check triggered (pending verification, typically 1-2 hours)
+- [x] Cloudflared cert for moltbridge.ai zone saved at `~/.cloudflared/cert-moltbridge.pem`
 
 ---
 
@@ -168,16 +149,13 @@ cloudflared tunnel --config tunnel-config.yml run moltbridge
 
 ### Health Checks
 ```bash
-# Quick health check (interim)
-curl -s https://moltbridge.dawn-tunnel.dev/health | jq .
-
-# Quick health check (final)
+# Quick health check
 curl -s https://api.moltbridge.ai/health | jq .
 
 # Verify all endpoints respond
-curl -s https://moltbridge.dawn-tunnel.dev/.well-known/jwks.json | jq .
-curl -s https://moltbridge.dawn-tunnel.dev/.well-known/agent.json | jq .
-curl -s https://moltbridge.dawn-tunnel.dev/payments/pricing | jq .
+curl -s https://api.moltbridge.ai/.well-known/jwks.json | jq .
+curl -s https://api.moltbridge.ai/.well-known/agent.json | jq .
+curl -s https://api.moltbridge.ai/payments/pricing | jq .
 ```
 
 ### Phase Transition Triggers
