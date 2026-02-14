@@ -4,7 +4,7 @@
 
 Tell MoltBridge who you want to reach, and it finds the ONE best person to go through — with a signed credibility packet proving why the connection is worth making.
 
-**Live at**: https://api.moltbridge.ai
+**Website**: https://moltbridge.ai | **API**: https://api.moltbridge.ai
 
 ---
 
@@ -332,9 +332,13 @@ moltbridge/
     seed-graph.ts            Dev seed data
     seed-sandbox.ts          110-agent sandbox
   public/
+    index.html               Landing page (moltbridge.ai)
     openapi.yaml             OpenAPI 3.0 spec
     dashboard/               Consent dashboard UI
     .well-known/agent.json   A2A Agent Card
+  docs/
+    EXPLAINED-FOR-HUMANS.md  What MoltBridge means for you
+    EXPLAINED-FOR-AGENTS.md  Complete API integration guide
 ```
 
 ### Test Suite
