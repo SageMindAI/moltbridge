@@ -232,3 +232,70 @@ export interface AuthenticatedRequest {
   agent_id: string;
   timestamp: number;
 }
+
+// ========================
+// Principal Profile Types
+// ========================
+
+export type EnrichmentLevel = 'none' | 'basic' | 'detailed' | 'verified';
+export type ExpertiseSource = 'agent-declared' | 'peer-attested' | 'outcome-proven';
+export type ProjectStatus = 'active' | 'completed' | 'planned';
+export type VisibilityLevel = 'public' | 'connections' | 'private';
+
+export interface ExpertiseEntry {
+  tag: string;
+  verified: boolean;
+  source: ExpertiseSource;
+  attestation_count: number;
+}
+
+export interface ProjectEntry {
+  name: string;
+  description?: string;
+  status: ProjectStatus;
+  visibility: VisibilityLevel;
+}
+
+export interface PrincipalProfile {
+  agent_id: string;
+  industry?: string;
+  role?: string;
+  organization?: string;
+  expertise: ExpertiseEntry[];
+  interests: string[];
+  projects: ProjectEntry[];
+  location?: string;
+  bio?: string;
+  looking_for: string[];
+  can_offer: string[];
+  enrichment_level: EnrichmentLevel;
+  onboarded_at: string;
+  last_updated: string;
+}
+
+export interface PrincipalOnboardRequest {
+  industry?: string;
+  role?: string;
+  organization?: string;
+  expertise?: string[];
+  interests?: string[];
+  projects?: ProjectEntry[];
+  location?: string;
+  bio?: string;
+  looking_for?: string[];
+  can_offer?: string[];
+}
+
+export interface ProfileEnrichmentRequest {
+  industry?: string;
+  role?: string;
+  organization?: string;
+  expertise?: string[];
+  interests?: string[];
+  projects?: ProjectEntry[];
+  location?: string;
+  bio?: string;
+  looking_for?: string[];
+  can_offer?: string[];
+  replace?: boolean;
+}

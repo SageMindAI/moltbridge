@@ -15,6 +15,7 @@ import { CredibilityService } from '../services/credibility';
 import { TrustService } from '../services/trust';
 import { VerificationService } from '../services/verification';
 import { RegistrationService } from '../services/registration';
+import { PrincipalService } from '../services/principal';
 import { IQSService, type IQSComponents } from '../services/iqs';
 import { WebhookService, type WebhookEventType } from '../services/webhooks';
 import { ConsentService, CONSENT_PURPOSES, CONSENT_DESCRIPTIONS, OMNISCIENCE_DISCLOSURE, type ConsentPurpose } from '../services/consent';
@@ -34,6 +35,7 @@ export function createRoutes(): Router {
   const trustService = new TrustService();
   const verificationService = new VerificationService();
   const registrationService = new RegistrationService();
+  const principalService = new PrincipalService();
   const iqsService = new IQSService();
   const webhookService = new WebhookService();
   const consentService = new ConsentService();
@@ -196,6 +198,48 @@ export function createRoutes(): Router {
     });
 
     res.json({ agent });
+  }));
+
+  // ========================
+  // Principal Onboarding Endpoints
+  // ========================
+
+  // POST /principal/onboard — Agent submits initial profile for its human
+  router.post('/principal/onboard', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { industry, role, organization, expertise, interests, projects, location, bio, looking_for, can_offer } = req.body;
+
+    const profile = await principalService.onboard(auth.agent_id, {
+      industry, role, organization, expertise, interests, projects, location, bio, looking_for, can_offer,
+    });
+
+    res.status(201).json({ profile, enrichment_level: profile.enrichment_level });
+  }));
+
+  // PUT /principal/profile — Agent updates principal profile
+  router.put('/principal/profile', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const { industry, role, organization, expertise, interests, projects, location, bio, looking_for, can_offer, replace } = req.body;
+
+    const profile = await principalService.updateProfile(auth.agent_id, {
+      industry, role, organization, expertise, interests, projects, location, bio, looking_for, can_offer, replace,
+    });
+
+    res.json({ profile });
+  }));
+
+  // GET /principal/profile — Agent reads its principal's full profile
+  router.get('/principal/profile', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const profile = await principalService.getProfile(auth.agent_id);
+    res.json({ profile });
+  }));
+
+  // GET /principal/visibility — What others can see about this principal
+  router.get('/principal/visibility', requireAuth, rateLimit('standard'), asyncHandler(async (req, res) => {
+    const auth = (req as any).auth as AuthenticatedRequest;
+    const visible = await principalService.getVisibility(auth.agent_id);
+    res.json({ visible, enrichment_level: visible.enrichment_level });
   }));
 
   // POST /discover-broker — Find best broker to reach a person
