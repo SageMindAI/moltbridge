@@ -1,0 +1,5 @@
+[2026-02-13T14:16:46.334584] === Ad-Hoc Reflection Detected ===
+[2026-02-13T14:16:46.334709] Tool: Edit
+[2026-02-13T14:16:46.334800] Reset checkpoints_since_reflection: 2 -> 0
+[2026-02-13T14:16:46.334832] Ad-hoc reflection acknowledged (formal /reflect still needed for full reset)
+[2026-02-13T14:16:46.334926] Synthesis trigger increment failed (non-critical): No module named 'synthesis_triggers'

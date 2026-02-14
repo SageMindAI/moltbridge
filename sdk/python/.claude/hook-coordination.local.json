@@ -1,0 +1,10 @@
+{
+  "last_hooks_fired": {
+    "context_health": "2026-02-13T23:40:56.780503+00:00",
+    "meta_reflection": "2026-02-13T23:40:56.786648+00:00",
+    "session_boundary": "2026-02-13T23:09:59.589817+00:00"
+  },
+  "last_transcript_size": 20462928,
+  "compaction_detected": false,
+  "examination_log": []
+}

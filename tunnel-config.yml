@@ -1,0 +1,9 @@
+tunnel: 6c8f8222-c959-43bc-8a6c-6d693e69f03f
+credentials-file: /Users/justin/.cloudflared/6c8f8222-c959-43bc-8a6c-6d693e69f03f.json
+
+ingress:
+  - hostname: moltbridge.dawn-tunnel.dev
+    service: http://localhost:3040
+  - hostname: api.moltbridge.ai
+    service: http://localhost:3040
+  - service: http_status:404

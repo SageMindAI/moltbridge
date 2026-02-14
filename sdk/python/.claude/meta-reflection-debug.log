@@ -1,0 +1,192 @@
+[2026-02-13T14:05:54.955297] === Meta-Reflection Hook Running ===
+[2026-02-13T14:05:54.955408] Session freshness check: No session freshness marker
+[2026-02-13T14:05:54.969836] Session type: collaborative
+[2026-02-13T14:05:54.970054] Loaded metrics: {
+  "tool_calls_since_reflection": 1,
+  "sessions_since_reflection": 1,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T14:05:54.949258",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": []
+}
+[2026-02-13T14:05:54.970115] Ralph active: False
+[2026-02-13T14:05:54.970164] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T14:05:54.970314] Checkpoints since reflection: 1
+[2026-02-13T14:05:54.970640] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T14:05:54.970707] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T14:05:54.970745] Stale dashboards: []
+[2026-02-13T14:05:54.970780] Is autonomous: False
+[2026-02-13T14:06:30.274429] === Meta-Reflection Hook Running ===
+[2026-02-13T14:06:30.274522] Session freshness check: No session freshness marker
+[2026-02-13T14:06:30.287263] Session type: collaborative
+[2026-02-13T14:06:30.287533] Suppressed by coordination: In cooldown (4.4 min remaining)
+[2026-02-13T14:13:29.391229] === Meta-Reflection Hook Running ===
+[2026-02-13T14:13:29.391440] Session freshness check: No session freshness marker
+[2026-02-13T14:13:29.409256] Session type: collaborative
+[2026-02-13T14:13:29.409723] Loaded metrics: {
+  "tool_calls_since_reflection": 3,
+  "sessions_since_reflection": 1,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T14:13:29.385084",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T14:05:54.970181",
+  "checkpoints_since_reflection": 1
+}
+[2026-02-13T14:13:29.409811] Ralph active: False
+[2026-02-13T14:13:29.409871] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T14:13:29.410018] Checkpoints since reflection: 2
+[2026-02-13T14:13:29.410194] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T14:13:29.410241] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T14:13:29.410267] Stale dashboards: []
+[2026-02-13T14:13:29.410293] Is autonomous: False
+[2026-02-13T14:13:34.771607] === Meta-Reflection Hook Running ===
+[2026-02-13T14:13:34.771728] Session freshness check: No session freshness marker
+[2026-02-13T14:13:34.794412] Session type: collaborative
+[2026-02-13T14:13:34.794692] Suppressed by coordination: In cooldown (4.9 min remaining)
+[2026-02-13T14:18:11.750099] === Meta-Reflection Hook Running ===
+[2026-02-13T14:18:11.750210] Session freshness check: No session freshness marker
+[2026-02-13T14:18:11.763119] Session type: collaborative
+[2026-02-13T14:18:11.763402] Suppressed by coordination: In cooldown (0.3 min remaining)
+[2026-02-13T14:22:43.851959] === Meta-Reflection Hook Running ===
+[2026-02-13T14:22:43.852071] Session freshness check: No session freshness marker
+[2026-02-13T14:22:43.865699] Session type: collaborative
+[2026-02-13T14:22:43.866071] Loaded metrics: {
+  "tool_calls_since_reflection": 6,
+  "sessions_since_reflection": 1,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T14:22:43.845278",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T14:13:29.409886",
+  "checkpoints_since_reflection": 0,
+  "last_adhoc_reflection": "2026-02-13T14:16:46.334779"
+}
+[2026-02-13T14:22:43.866154] Ralph active: False
+[2026-02-13T14:22:43.866213] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T14:22:43.866374] Checkpoints since reflection: 1
+[2026-02-13T14:22:43.866533] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T14:22:43.866580] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T14:22:43.866624] Stale dashboards: []
+[2026-02-13T14:22:43.866662] Is autonomous: False
+[2026-02-13T14:22:52.937396] === Meta-Reflection Hook Running ===
+[2026-02-13T14:22:52.937513] Session freshness check: No session freshness marker
+[2026-02-13T14:22:52.950367] Session type: collaborative
+[2026-02-13T14:22:52.950649] Suppressed by coordination: In cooldown (4.8 min remaining)
+[2026-02-13T15:09:59.580103] === Meta-Reflection Hook Running ===
+[2026-02-13T15:09:59.580470] Session freshness check: No session freshness marker
+[2026-02-13T15:09:59.592966] Session type: collaborative
+[2026-02-13T15:09:59.593271] Suppressed by coordination: Higher-priority hook 'session_boundary' fired recently
+[2026-02-13T15:10:25.597725] === Meta-Reflection Hook Running ===
+[2026-02-13T15:10:25.614607] Session freshness check: No session freshness marker
+[2026-02-13T15:10:25.634581] Session type: collaborative
+[2026-02-13T15:10:25.634961] Suppressed by coordination: Higher-priority hook 'session_boundary' fired recently
+[2026-02-13T15:14:45.460935] === Meta-Reflection Hook Running ===
+[2026-02-13T15:14:45.461048] Session freshness check: No session freshness marker
+[2026-02-13T15:14:45.475899] Session type: collaborative
+[2026-02-13T15:14:45.476326] Loaded metrics: {
+  "tool_calls_since_reflection": 10,
+  "sessions_since_reflection": 2,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T15:14:45.454435",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T14:22:43.866234",
+  "checkpoints_since_reflection": 1,
+  "last_adhoc_reflection": "2026-02-13T14:16:46.334779"
+}
+[2026-02-13T15:14:45.476397] Ralph active: False
+[2026-02-13T15:14:45.476461] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T15:14:45.476610] Checkpoints since reflection: 2
+[2026-02-13T15:14:45.476777] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T15:14:45.476831] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T15:14:45.476861] Stale dashboards: []
+[2026-02-13T15:14:45.476964] Is autonomous: False
+[2026-02-13T15:15:01.928802] === Meta-Reflection Hook Running ===
+[2026-02-13T15:15:01.928924] Session freshness check: No session freshness marker
+[2026-02-13T15:15:01.943365] Session type: collaborative
+[2026-02-13T15:15:01.943727] Suppressed by coordination: In cooldown (4.7 min remaining)
+[2026-02-13T15:18:42.653744] === Meta-Reflection Hook Running ===
+[2026-02-13T15:18:42.653868] Session freshness check: No session freshness marker
+[2026-02-13T15:18:42.668279] Session type: collaborative
+[2026-02-13T15:18:42.668623] Suppressed by coordination: In cooldown (1.0 min remaining)
+[2026-02-13T15:27:45.888732] === Meta-Reflection Hook Running ===
+[2026-02-13T15:27:45.888870] Session freshness check: No session freshness marker
+[2026-02-13T15:27:45.903564] Session type: collaborative
+[2026-02-13T15:27:45.903946] Loaded metrics: {
+  "tool_calls_since_reflection": 13,
+  "sessions_since_reflection": 2,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T15:27:45.881972",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T15:14:45.476482",
+  "checkpoints_since_reflection": 2,
+  "last_adhoc_reflection": "2026-02-13T14:16:46.334779"
+}
+[2026-02-13T15:27:45.904004] Ralph active: False
+[2026-02-13T15:27:45.904062] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T15:27:45.904204] Checkpoints since reflection: 3
+[2026-02-13T15:27:45.904361] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T15:27:45.904411] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T15:27:45.904439] Stale dashboards: []
+[2026-02-13T15:27:45.904469] Is autonomous: False
+[2026-02-13T15:28:15.592254] === Meta-Reflection Hook Running ===
+[2026-02-13T15:28:15.592382] Session freshness check: No session freshness marker
+[2026-02-13T15:28:15.606345] Session type: collaborative
+[2026-02-13T15:28:15.606646] Suppressed by coordination: In cooldown (4.5 min remaining)
+[2026-02-13T15:40:56.769385] === Meta-Reflection Hook Running ===
+[2026-02-13T15:40:56.769512] Session freshness check: No session freshness marker
+[2026-02-13T15:40:56.785679] Session type: collaborative
+[2026-02-13T15:40:56.786218] Loaded metrics: {
+  "tool_calls_since_reflection": 15,
+  "sessions_since_reflection": 2,
+  "last_reflection_timestamp": null,
+  "last_reflection_type": null,
+  "last_response_timestamp": "2026-02-13T15:40:56.758931",
+  "thresholds": {
+    "tool_calls": 50,
+    "sessions": 5,
+    "hours": 24
+  },
+  "history": [],
+  "last_checkpoint_shown": "2026-02-13T15:27:45.904078",
+  "checkpoints_since_reflection": 3,
+  "last_adhoc_reflection": "2026-02-13T14:16:46.334779"
+}
+[2026-02-13T15:40:56.786332] Ralph active: False
+[2026-02-13T15:40:56.786410] Exceeded thresholds: {'minutes': {'current': inf, 'threshold': 15}}
+[2026-02-13T15:40:56.786585] Checkpoints since reflection: 4
+[2026-02-13T15:40:56.786762] Recorded checkpoint shown, triggering meta-reflection prompt
+[2026-02-13T15:40:56.786818] Evolution queue: {'total': 0, 'critical': 0, 'high': 0}
+[2026-02-13T15:40:56.786853] Stale dashboards: []
+[2026-02-13T15:40:56.786914] Is autonomous: False
+[2026-02-13T15:41:29.280931] === Meta-Reflection Hook Running ===
+[2026-02-13T15:41:29.281047] Session freshness check: No session freshness marker
+[2026-02-13T15:41:29.293785] Session type: collaborative
+[2026-02-13T15:41:29.294127] Suppressed by coordination: In cooldown (4.5 min remaining)
