@@ -276,7 +276,7 @@ async function main() {
   const tunnelOnly = args.includes('--tunnel');
   const noTunnel = args.includes('--no-tunnel');
   const port = parseInt(process.env.PORT || '3040', 10);
-  const hostname = process.env.MOLTBRIDGE_HOSTNAME || 'api.moltbridge.com';
+  const hostname = process.env.MOLTBRIDGE_HOSTNAME || 'api.moltbridge.ai';
 
   // Always run pre-flight
   const passed = await runPreflightChecks();

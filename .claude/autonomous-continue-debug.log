@@ -50,3 +50,47 @@
 [2026-02-13T00:41:53.909713] Instance check: should_fire=False, reason=not_autonomous
 [2026-02-13T00:41:53.910195] Instance context: my_id=claude-3362, owner=None, is_owner=False
 [2026-02-13T00:41:53.910432] No autonomous session active
+[2026-02-13T12:03:19.487878] === Autonomous Continue Hook Running ===
+[2026-02-13T12:03:19.498966] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:03:19.499066] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:03:19.499105] No autonomous session active
+[2026-02-13T12:05:04.233193] === Autonomous Continue Hook Running ===
+[2026-02-13T12:05:04.245374] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:05:04.245464] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:05:04.245507] No autonomous session active
+[2026-02-13T12:08:09.315283] === Autonomous Continue Hook Running ===
+[2026-02-13T12:08:09.328390] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:08:09.328454] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:08:09.328492] No autonomous session active
+[2026-02-13T12:18:36.260802] === Autonomous Continue Hook Running ===
+[2026-02-13T12:18:36.272131] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:18:36.272208] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:18:36.272261] No autonomous session active
+[2026-02-13T12:18:53.308252] === Autonomous Continue Hook Running ===
+[2026-02-13T12:18:53.322595] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:18:53.322666] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:18:53.322711] No autonomous session active
+[2026-02-13T12:20:54.401493] === Autonomous Continue Hook Running ===
+[2026-02-13T12:20:54.414109] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:20:54.414187] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:20:54.414224] No autonomous session active
+[2026-02-13T12:24:49.952671] === Autonomous Continue Hook Running ===
+[2026-02-13T12:24:49.967480] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:24:49.967562] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:24:49.967607] No autonomous session active
+[2026-02-13T12:25:13.535399] === Autonomous Continue Hook Running ===
+[2026-02-13T12:25:13.557466] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:25:13.557568] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:25:13.557655] No autonomous session active
+[2026-02-13T12:59:46.480377] === Autonomous Continue Hook Running ===
+[2026-02-13T12:59:46.489765] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T12:59:46.489816] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T12:59:46.489847] No autonomous session active
+[2026-02-13T13:01:13.667963] === Autonomous Continue Hook Running ===
+[2026-02-13T13:01:13.677669] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T13:01:13.677742] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T13:01:13.677773] No autonomous session active
+[2026-02-13T14:04:17.890698] === Autonomous Continue Hook Running ===
+[2026-02-13T14:04:17.901178] Instance check: should_fire=False, reason=not_autonomous
+[2026-02-13T14:04:17.901273] Instance context: my_id=claude-95251, owner=None, is_owner=False
+[2026-02-13T14:04:17.901313] No autonomous session active

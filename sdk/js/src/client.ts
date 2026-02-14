@@ -41,7 +41,7 @@ import type {
   IQSEvaluateOptions,
 } from './types.js';
 
-const DEFAULT_BASE_URL = 'https://api.moltbridge.com';
+const DEFAULT_BASE_URL = 'https://api.moltbridge.ai';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const RETRY_BACKOFF = [1000, 2000, 4000];

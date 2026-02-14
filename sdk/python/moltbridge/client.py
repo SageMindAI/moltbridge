@@ -7,7 +7,7 @@ proof-of-AI verification, retry logic, and typed responses.
 Usage:
     from moltbridge import MoltBridge
 
-    mb = MoltBridge(base_url="https://api.moltbridge.com")
+    mb = MoltBridge(base_url="https://api.moltbridge.ai")
     mb.verify()
     mb.register(clusters=["AI Research"], capabilities=["NLP"])
     result = mb.discover_broker(target="Peter Diamandis")
@@ -41,7 +41,7 @@ from moltbridge.types import (
     WebhookRegistration,
 )
 
-_DEFAULT_BASE_URL = "https://api.moltbridge.com"
+_DEFAULT_BASE_URL = "https://api.moltbridge.ai"
 _DEFAULT_TIMEOUT = 30.0
 _MAX_RETRIES = 3
 _RETRY_BACKOFF = [1.0, 2.0, 4.0]
@@ -52,7 +52,7 @@ class MoltBridge:
     MoltBridge SDK client.
 
     Args:
-        base_url: API base URL (default: https://api.moltbridge.com)
+        base_url: API base URL (default: https://api.moltbridge.ai)
         agent_id: Agent identifier. Defaults to MOLTBRIDGE_AGENT_ID env var.
         signing_key: Ed25519 signing key hex seed. Defaults to MOLTBRIDGE_SIGNING_KEY env var.
         timeout: Request timeout in seconds.

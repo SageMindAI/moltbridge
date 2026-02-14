@@ -11,7 +11,7 @@ export interface MoltBridgeConfig {
   agentId?: string;
   /** Ed25519 signing key seed (hex-encoded) */
   signingKey?: string;
-  /** Base URL of MoltBridge API (default: https://api.moltbridge.com) */
+  /** Base URL of MoltBridge API (default: https://api.moltbridge.ai) */
   baseUrl?: string;
   /** Request timeout in ms (default: 30000) */
   timeout?: number;

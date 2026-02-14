@@ -50,7 +50,7 @@ const matches = await mb.discoverCapability({ needs: ['space-tech'] });
 const mb = new MoltBridge({
   agentId: 'my-agent',           // or MOLTBRIDGE_AGENT_ID env var
   signingKey: '...',             // or MOLTBRIDGE_SIGNING_KEY env var
-  baseUrl: 'https://api.moltbridge.com', // or MOLTBRIDGE_BASE_URL
+  baseUrl: 'https://api.moltbridge.ai', // or MOLTBRIDGE_BASE_URL
   timeout: 30000,                // request timeout (ms)
   maxRetries: 3,                 // retry on network failure
 });

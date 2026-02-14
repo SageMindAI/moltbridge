@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [
-  { name = "SageMind AI", email = "support@moltbridge.com" },
+  { name = "SageMind AI", email = "support@moltbridge.ai" },
 ]
 keywords = ["ai", "agents", "networking", "graph", "moltbridge"]
 classifiers = [
@@ -33,6 +33,6 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://moltbridge.com"
-Documentation = "https://docs.moltbridge.com"
+Homepage = "https://moltbridge.ai"
+Documentation = "https://docs.moltbridge.ai"
 Repository = "https://github.com/SageMindAI/moltbridge-python"

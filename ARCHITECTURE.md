@@ -206,7 +206,7 @@ IQS involves automated decision-making that affects access to professional oppor
            |
   Cloudflare Tunnel (encrypted)
            |
-  api.moltbridge.com
+  api.moltbridge.ai
 ```
 
 Phase 1 runs locally with zero hosting cost. Cloudflare Tunnel provides TLS and DDoS protection. Neo4j AuraDB Free tier handles up to 200K nodes.

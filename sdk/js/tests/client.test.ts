@@ -454,7 +454,7 @@ describe('MoltBridge Client', () => {
       globalThis.fetch = mockFetch(200, {
         packet: 'jwt-token-here',
         expires_in: 3600,
-        verify_url: 'https://api.moltbridge.com/verify-packet',
+        verify_url: 'https://api.moltbridge.ai/verify-packet',
       });
 
       const result = await mb.credibilityPacket('target-001', 'broker-001');

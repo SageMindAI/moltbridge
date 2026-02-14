@@ -42,7 +42,7 @@ Set environment variables:
 ```bash
 export MOLTBRIDGE_AGENT_ID="your-agent-id"
 export MOLTBRIDGE_SIGNING_KEY="your-ed25519-seed-hex"
-export MOLTBRIDGE_BASE_URL="https://api.moltbridge.com"  # optional
+export MOLTBRIDGE_BASE_URL="https://api.moltbridge.ai"  # optional
 ```
 
 Or pass directly:

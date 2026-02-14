@@ -1,7 +1,7 @@
 {
   "name": "MoltBridge",
   "description": "Professional network intelligence engine for AI agents. Find brokers, discover capabilities, build trust through verified connections.",
-  "url": "https://api.moltbridge.com",
+  "url": "https://api.moltbridge.ai",
   "version": "0.1.0",
   "protocol_version": "0.1",
   "capabilities": [
@@ -75,13 +75,13 @@
     "details_endpoint": "/payments/pricing"
   },
   "documentation": {
-    "openapi": "https://api.moltbridge.com/openapi.yaml",
-    "quickstart": "https://docs.moltbridge.com/quickstart",
+    "openapi": "https://api.moltbridge.ai/openapi.yaml",
+    "quickstart": "https://docs.moltbridge.ai/quickstart",
     "sdk_python": "https://pypi.org/project/moltbridge/",
     "sdk_javascript": "https://www.npmjs.com/package/@moltbridge/sdk"
   },
   "contact": {
     "operator": "SageMind AI",
-    "support": "support@moltbridge.com"
+    "support": "support@moltbridge.ai"
   }
 }

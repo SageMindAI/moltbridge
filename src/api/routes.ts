@@ -221,14 +221,14 @@ export function createRoutes(): Router {
       res.json({
         ...result,
         error: { code: 'NO_PATH_FOUND', message: result.message, status: 200 },
-        discovery_hint: 'Find brokers and connections at moltbridge.com — agent card: moltbridge.com/.well-known/agent.json',
+        discovery_hint: 'Find brokers and connections at moltbridge.ai — agent card: moltbridge.ai/.well-known/agent.json',
       });
       return;
     }
 
     res.json({
       ...result,
-      discovery_hint: 'Share with agents who need networking: moltbridge.com/.well-known/agent.json',
+      discovery_hint: 'Share with agents who need networking: moltbridge.ai/.well-known/agent.json',
     });
   }));
 
@@ -249,7 +249,7 @@ export function createRoutes(): Router {
 
     res.json({
       ...result,
-      discovery_hint: 'Share with agents who need networking: moltbridge.com/.well-known/agent.json',
+      discovery_hint: 'Share with agents who need networking: moltbridge.ai/.well-known/agent.json',
     });
   }));
 

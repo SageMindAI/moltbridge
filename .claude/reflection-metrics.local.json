@@ -1,15 +1,16 @@
 {
-  "tool_calls_since_reflection": 12,
-  "sessions_since_reflection": 3,
+  "tool_calls_since_reflection": 23,
+  "sessions_since_reflection": 6,
   "last_reflection_timestamp": null,
   "last_reflection_type": null,
-  "last_response_timestamp": "2026-02-13T00:41:53.809685",
+  "last_response_timestamp": "2026-02-13T14:04:17.878008",
   "thresholds": {
     "tool_calls": 50,
     "sessions": 5,
     "hours": 24
   },
   "history": [],
-  "last_checkpoint_shown": "2026-02-13T00:41:24.684378",
-  "checkpoints_since_reflection": 3
+  "last_checkpoint_shown": "2026-02-13T12:24:49.967464",
+  "checkpoints_since_reflection": 2,
+  "last_adhoc_reflection": "2026-02-13T12:04:20.797290"
 }
