@@ -340,7 +340,9 @@ describe('Authenticated Endpoints', () => {
     const keyPair = generateTestKeyPair();
     const oldTimestamp = Math.floor(Date.now() / 1000) - 120; // 2 minutes ago
     const body = { target_identifier: 'some-agent' };
-    const bodyHash = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
+    // Canonical JSON: sorted keys, compact — matches server's body hashing
+    const canonicalBody = JSON.stringify(body, Object.keys(body).sort());
+    const bodyHash = crypto.createHash('sha256').update(canonicalBody).digest('hex');
     const message = `POST:/discover-broker:${oldTimestamp}:${bodyHash}`;
     const messageBytes = new TextEncoder().encode(message);
 

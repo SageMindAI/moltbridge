@@ -75,11 +75,11 @@ class VerificationChallenge:
     """A proof-of-AI challenge to solve."""
 
     challenge_id: str
-    challenge_type: str
     difficulty: int
-    expires_at: str
     nonce: str
-    target_prefix: str
+    challenge_type: str = ""
+    expires_at: str = ""
+    target_prefix: str = ""
 
 
 @dataclass

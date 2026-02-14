@@ -24,6 +24,26 @@ function fromHex(hex: string): Uint8Array {
   return new Uint8Array(Buffer.from(hex, 'hex'));
 }
 
+/**
+ * Canonical JSON serialization with sorted keys at all levels.
+ * Matches Python's json.dumps(obj, separators=(",", ":"), sort_keys=True).
+ */
+function canonicalStringify(obj: unknown): string {
+  if (obj === null || obj === undefined) return 'null';
+  if (typeof obj === 'string') return JSON.stringify(obj);
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (Array.isArray(obj)) {
+    return '[' + obj.map(canonicalStringify).join(',') + ']';
+  }
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj as Record<string, unknown>).sort();
+    return '{' + keys.map(k =>
+      JSON.stringify(k) + ':' + canonicalStringify((obj as Record<string, unknown>)[k])
+    ).join(',') + '}';
+  }
+  return JSON.stringify(obj);
+}
+
 export class Ed25519Signer {
   private readonly _seed: Uint8Array;
   private readonly _publicKey: Uint8Array;
@@ -72,7 +92,7 @@ export class Ed25519Signer {
   signRequest(method: string, path: string, body?: Record<string, unknown>): string {
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    const bodyStr = body ? JSON.stringify(body, Object.keys(body).sort()) : '';
+    const bodyStr = body ? canonicalStringify(body) : '';
     const bodyHash = createHash('sha256').update(bodyStr).digest('hex');
 
     const message = `${method}:${path}:${timestamp}:${bodyHash}`;

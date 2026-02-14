@@ -183,10 +183,8 @@ export class MoltBridge {
       timestamp: challengeData.expires_at as string,
     };
 
-    const proof = this._solveChallenge(
-      challenge.nonce,
-      challengeData.target_prefix as string,
-    );
+    const targetPrefix = '0'.repeat(challenge.difficulty);
+    const proof = this._solveChallenge(challenge.nonce, targetPrefix);
 
     const result = await this._request<Record<string, unknown>>(
       'POST', '/verify',
@@ -203,9 +201,9 @@ export class MoltBridge {
   private _solveChallenge(nonce: string, targetPrefix: string): string {
     let counter = 0;
     while (counter < 10_000_000) {
-      const attempt = `${nonce}${counter}`;
-      const digest = createHash('sha256').update(attempt).digest('hex');
-      if (digest.startsWith(targetPrefix)) return attempt;
+      const counterStr = String(counter);
+      const digest = createHash('sha256').update(nonce + counterStr).digest('hex');
+      if (digest.startsWith(targetPrefix)) return counterStr;
       counter++;
     }
     throw new MoltBridgeError('Challenge solving exceeded 10M iterations', 0, 'CHALLENGE_TIMEOUT');
@@ -254,6 +252,78 @@ export class MoltBridge {
     if (options.clusters !== undefined) body.clusters = options.clusters;
     if (options.a2aEndpoint !== undefined) body.a2a_endpoint = options.a2aEndpoint;
     return this._request('PUT', '/profile', { body });
+  }
+
+  // ========================
+  // Principal Onboarding
+  // ========================
+
+  /**
+   * Onboard your human principal. Submits their professional profile
+   * so MoltBridge can find better introductions.
+   * At least one of industry, role, or expertise is required.
+   */
+  async onboardPrincipal(options: {
+    industry?: string;
+    role?: string;
+    organization?: string;
+    expertise?: string[];
+    interests?: string[];
+    projects?: Array<{ name: string; description?: string; status?: string; visibility?: string }>;
+    location?: string;
+    bio?: string;
+    lookingFor?: string[];
+    canOffer?: string[];
+  }): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {};
+    if (options.industry !== undefined) body.industry = options.industry;
+    if (options.role !== undefined) body.role = options.role;
+    if (options.organization !== undefined) body.organization = options.organization;
+    if (options.expertise !== undefined) body.expertise = options.expertise;
+    if (options.interests !== undefined) body.interests = options.interests;
+    if (options.projects !== undefined) body.projects = options.projects;
+    if (options.location !== undefined) body.location = options.location;
+    if (options.bio !== undefined) body.bio = options.bio;
+    if (options.lookingFor !== undefined) body.looking_for = options.lookingFor;
+    if (options.canOffer !== undefined) body.can_offer = options.canOffer;
+    return this._request('POST', '/principal/onboard', { body });
+  }
+
+  /** Update your principal's profile. Additive by default; set replace=true to overwrite. */
+  async updatePrincipal(options: {
+    industry?: string;
+    role?: string;
+    organization?: string;
+    expertise?: string[];
+    interests?: string[];
+    location?: string;
+    bio?: string;
+    lookingFor?: string[];
+    canOffer?: string[];
+    replace?: boolean;
+  }): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {};
+    if (options.industry !== undefined) body.industry = options.industry;
+    if (options.role !== undefined) body.role = options.role;
+    if (options.organization !== undefined) body.organization = options.organization;
+    if (options.expertise !== undefined) body.expertise = options.expertise;
+    if (options.interests !== undefined) body.interests = options.interests;
+    if (options.location !== undefined) body.location = options.location;
+    if (options.bio !== undefined) body.bio = options.bio;
+    if (options.lookingFor !== undefined) body.looking_for = options.lookingFor;
+    if (options.canOffer !== undefined) body.can_offer = options.canOffer;
+    if (options.replace) body.replace = true;
+    return this._request('PUT', '/principal/profile', { body });
+  }
+
+  /** Get your principal's full profile. */
+  async getPrincipal(): Promise<Record<string, unknown>> {
+    return this._request('GET', '/principal/profile');
+  }
+
+  /** Get the public-facing view of your principal's profile. */
+  async getPrincipalVisibility(): Promise<Record<string, unknown>> {
+    return this._request('GET', '/principal/visibility');
   }
 
   // ========================

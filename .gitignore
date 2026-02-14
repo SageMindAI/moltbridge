@@ -4,3 +4,7 @@ dist/
 .env.local
 *.dev-keys.json
 coverage/
+__pycache__/
+*.pyc
+.claude/
+tunnel-config.yml

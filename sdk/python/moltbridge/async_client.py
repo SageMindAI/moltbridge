@@ -174,11 +174,9 @@ class AsyncMoltBridge:
 
         challenge = VerificationChallenge(
             challenge_id=challenge_data["challenge_id"],
-            challenge_type=challenge_data["challenge_type"],
             difficulty=challenge_data["difficulty"],
-            expires_at=challenge_data["expires_at"],
             nonce=challenge_data["nonce"],
-            target_prefix=challenge_data["target_prefix"],
+            target_prefix="0" * challenge_data["difficulty"],
         )
 
         proof = self._solve_challenge(challenge)
@@ -198,14 +196,14 @@ class AsyncMoltBridge:
 
     @staticmethod
     def _solve_challenge(challenge: VerificationChallenge) -> str:
-        nonce_prefix = challenge.nonce
+        nonce = challenge.nonce
         target = challenge.target_prefix
         counter = 0
         while True:
-            attempt = f"{nonce_prefix}{counter}"
-            digest = hashlib.sha256(attempt.encode()).hexdigest()
+            counter_str = str(counter)
+            digest = hashlib.sha256((nonce + counter_str).encode()).hexdigest()
             if digest.startswith(target):
-                return attempt
+                return counter_str
             counter += 1
             if counter > 10_000_000:
                 raise MoltBridgeError("Challenge solving exceeded 10M iterations", code="CHALLENGE_TIMEOUT")

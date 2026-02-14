@@ -188,11 +188,9 @@ class MoltBridge:
 
         challenge = VerificationChallenge(
             challenge_id=challenge_data["challenge_id"],
-            challenge_type=challenge_data["challenge_type"],
             difficulty=challenge_data["difficulty"],
-            expires_at=challenge_data["expires_at"],
             nonce=challenge_data["nonce"],
-            target_prefix=challenge_data["target_prefix"],
+            target_prefix="0" * challenge_data["difficulty"],
         )
 
         # Step 2: Solve (SHA-256 proof of work)
@@ -215,15 +213,15 @@ class MoltBridge:
     @staticmethod
     def _solve_challenge(challenge: VerificationChallenge) -> str:
         """Solve a SHA-256 proof-of-work challenge."""
-        nonce_prefix = challenge.nonce
+        nonce = challenge.nonce
         target = challenge.target_prefix
         counter = 0
 
         while True:
-            attempt = f"{nonce_prefix}{counter}"
-            digest = hashlib.sha256(attempt.encode()).hexdigest()
+            counter_str = str(counter)
+            digest = hashlib.sha256((nonce + counter_str).encode()).hexdigest()
             if digest.startswith(target):
-                return attempt
+                return counter_str
             counter += 1
             if counter > 10_000_000:
                 raise MoltBridgeError(
@@ -301,6 +299,114 @@ class MoltBridge:
             body["a2a_endpoint"] = a2a_endpoint
 
         return self._request("PUT", "/profile", body=body)
+
+    # ========================
+    # Principal Onboarding
+    # ========================
+
+    def onboard_principal(
+        self,
+        industry: Optional[str] = None,
+        role: Optional[str] = None,
+        organization: Optional[str] = None,
+        expertise: Optional[list[str]] = None,
+        interests: Optional[list[str]] = None,
+        projects: Optional[list[dict]] = None,
+        location: Optional[str] = None,
+        bio: Optional[str] = None,
+        looking_for: Optional[list[str]] = None,
+        can_offer: Optional[list[str]] = None,
+    ) -> dict:
+        """
+        Onboard your human principal. Submits their professional profile
+        so MoltBridge can find better introductions.
+
+        At least one of industry, role, or expertise is required.
+
+        Args:
+            industry: Principal's industry (e.g., "venture-capital").
+            role: Principal's role (e.g., "managing-partner").
+            organization: Principal's organization.
+            expertise: List of expertise tags (lowercase, hyphens).
+            interests: List of interests.
+            projects: List of project dicts with name, description, status, visibility.
+            location: Principal's location.
+            bio: Short bio (max 500 chars).
+            looking_for: What the principal is seeking.
+            can_offer: What the principal can provide.
+        """
+        body: dict = {}
+        if industry is not None:
+            body["industry"] = industry
+        if role is not None:
+            body["role"] = role
+        if organization is not None:
+            body["organization"] = organization
+        if expertise is not None:
+            body["expertise"] = expertise
+        if interests is not None:
+            body["interests"] = interests
+        if projects is not None:
+            body["projects"] = projects
+        if location is not None:
+            body["location"] = location
+        if bio is not None:
+            body["bio"] = bio
+        if looking_for is not None:
+            body["looking_for"] = looking_for
+        if can_offer is not None:
+            body["can_offer"] = can_offer
+
+        return self._request("POST", "/principal/onboard", body=body)
+
+    def update_principal(
+        self,
+        industry: Optional[str] = None,
+        role: Optional[str] = None,
+        organization: Optional[str] = None,
+        expertise: Optional[list[str]] = None,
+        interests: Optional[list[str]] = None,
+        location: Optional[str] = None,
+        bio: Optional[str] = None,
+        looking_for: Optional[list[str]] = None,
+        can_offer: Optional[list[str]] = None,
+        replace: bool = False,
+    ) -> dict:
+        """
+        Update your principal's profile. Additive by default (appends to arrays).
+        Set replace=True to overwrite instead.
+        """
+        body: dict = {}
+        if industry is not None:
+            body["industry"] = industry
+        if role is not None:
+            body["role"] = role
+        if organization is not None:
+            body["organization"] = organization
+        if expertise is not None:
+            body["expertise"] = expertise
+        if interests is not None:
+            body["interests"] = interests
+        if location is not None:
+            body["location"] = location
+        if bio is not None:
+            body["bio"] = bio
+        if looking_for is not None:
+            body["looking_for"] = looking_for
+        if can_offer is not None:
+            body["can_offer"] = can_offer
+        if replace:
+            body["replace"] = True
+
+        return self._request("PUT", "/principal/profile", body=body)
+
+    def get_principal(self) -> dict:
+        """Get your principal's full profile."""
+        return self._request("GET", "/principal/profile")
+
+    def get_principal_visibility(self) -> dict:
+        """Get the public-facing view of your principal's profile."""
+        return self._request("GET", "/principal/visibility")
 
     # ========================
     # Discovery

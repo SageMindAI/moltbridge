@@ -35,4 +35,4 @@ dev = [
 [project.urls]
 Homepage = "https://moltbridge.ai"
 Documentation = "https://docs.moltbridge.ai"
-Repository = "https://github.com/SageMindAI/moltbridge-python"
+Repository = "https://github.com/SageMindAI/moltbridge"

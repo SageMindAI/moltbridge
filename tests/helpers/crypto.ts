@@ -41,6 +41,26 @@ export function generateTestKeyPair(): TestKeyPair {
 // Stays within ±30s of real time (well within the 60s freshness window).
 let _tsOffset = 0;
 
+/**
+ * Canonical JSON serialization with sorted keys at all levels.
+ * Matches Python's json.dumps(obj, separators=(",", ":"), sort_keys=True).
+ */
+function canonicalStringify(obj: unknown): string {
+  if (obj === null || obj === undefined) return 'null';
+  if (typeof obj === 'string') return JSON.stringify(obj);
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (Array.isArray(obj)) {
+    return '[' + obj.map(canonicalStringify).join(',') + ']';
+  }
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj as Record<string, unknown>).sort();
+    return '{' + keys.map(k =>
+      JSON.stringify(k) + ':' + canonicalStringify((obj as Record<string, unknown>)[k])
+    ).join(',') + '}';
+  }
+  return JSON.stringify(obj);
+}
+
 export function signRequest(
   keyPair: TestKeyPair,
   agentId: string,
@@ -52,7 +72,7 @@ export function signRequest(
   // Offset wraps at ±25 to stay within the 60s freshness window.
   const offset = (_tsOffset++) % 50 - 25;
   const timestamp = Math.floor(Date.now() / 1000) + offset;
-  const bodyStr = body ? JSON.stringify(body) : '';
+  const bodyStr = body && Object.keys(body).length > 0 ? canonicalStringify(body) : '';
   const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
   const message = `${method}:${path}:${timestamp}:${bodyHash}`;
   const messageBytes = new TextEncoder().encode(message);
