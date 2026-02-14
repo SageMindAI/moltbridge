@@ -2,13 +2,17 @@
  * Payment Service
  *
  * USDC micropayment handling for MoltBridge.
- * Agents pay per query (broker discovery, capability match).
- * Brokers earn commission on successful introductions.
  *
- * Phase 1: In-memory ledger with prepaid balances.
- * Phase 2: x402 protocol + on-chain USDC settlement on Base L2.
+ * PHASE 1 (CURRENT): ALL QUERIES ARE FREE.
+ * No wallets, no payments, no crypto required. The network is in bootstrap
+ * mode — we're building value first, monetizing second. The ledger tracks
+ * usage for analytics only; no charges are applied.
  *
- * Pricing:
+ * PHASE 2+: Per-query pricing via x402 protocol + USDC on Base L2.
+ * Revenue flows: Agent pays USDC → Coinbase Commerce → auto-convert USD →
+ * ACH deposit to SageMind AI LLC bank account.
+ *
+ * Future pricing (Phase 2):
  * - Broker discovery: $0.05 per query
  * - Capability match: $0.02 per query
  * - Credibility packet: $0.10 per packet
@@ -73,9 +77,19 @@ export class PaymentService {
   private ledger: LedgerEntry[] = [];
   private pricing: PricingConfig;
   private entryCounter = 0;
+  private freeMode: boolean;
 
-  constructor(pricing?: Partial<PricingConfig>) {
+  constructor(pricing?: Partial<PricingConfig>, freeMode: boolean = true) {
     this.pricing = { ...DEFAULT_PRICING, ...pricing };
+    this.freeMode = freeMode; // Phase 1: all queries free. Set false for Phase 2+.
+  }
+
+  /**
+   * Check if the platform is in free mode (Phase 1).
+   * When free, charge() logs usage but doesn't debit balances.
+   */
+  isFreeMode(): boolean {
+    return this.freeMode;
   }
 
   /**
@@ -113,11 +127,18 @@ export class PaymentService {
   }
 
   /**
-   * Charge for a query. Returns the ledger entry or throws if insufficient balance.
+   * Charge for a query. In free mode (Phase 1), logs usage but doesn't debit.
+   * In paid mode (Phase 2+), debits balance or throws if insufficient.
    */
   charge(agentId: string, paymentType: PaymentType): LedgerEntry {
     const account = this.getAccountOrThrow(agentId);
     const amount = this.pricing[paymentType];
+
+    if (this.freeMode) {
+      // Phase 1: track usage for analytics, no charge
+      return this.recordEntry(agentId, 'debit', 0, paymentType,
+        `Usage tracked (free tier): ${paymentType}`, account.balance);
+    }
 
     if (account.balance < amount) {
       throw new Error(`Insufficient balance: need $${amount.toFixed(2)}, have $${account.balance.toFixed(2)}`);
@@ -132,8 +153,10 @@ export class PaymentService {
 
   /**
    * Check if agent can afford a charge without actually charging.
+   * Always returns true in free mode (Phase 1).
    */
   canAfford(agentId: string, paymentType: PaymentType): boolean {
+    if (this.freeMode) return true;
     const account = this.balances.get(agentId);
     if (!account) return false;
     return account.balance >= this.pricing[paymentType];

@@ -17,7 +17,7 @@ describe('PaymentService', () => {
   let service: PaymentService;
 
   beforeEach(() => {
-    service = new PaymentService();
+    service = new PaymentService(undefined, false); // paid mode for existing tests
   });
 
   describe('createAccount()', () => {
@@ -339,6 +339,48 @@ describe('PaymentService', () => {
     it('broker shares are in descending order', () => {
       expect(BROKER_SHARES.founding).toBeGreaterThan(BROKER_SHARES.early);
       expect(BROKER_SHARES.early).toBeGreaterThan(BROKER_SHARES.standard);
+    });
+  });
+
+  describe('Free Mode (Phase 1)', () => {
+    let freeService: PaymentService;
+
+    beforeEach(() => {
+      freeService = new PaymentService(); // default is freeMode: true
+    });
+
+    it('defaults to free mode', () => {
+      expect(freeService.isFreeMode()).toBe(true);
+    });
+
+    it('canAfford always returns true in free mode', () => {
+      freeService.createAccount('agent-1');
+      // Balance is 0, but free mode means everything is affordable
+      expect(freeService.canAfford('agent-1', 'broker_discovery')).toBe(true);
+      expect(freeService.canAfford('agent-1', 'credibility_packet')).toBe(true);
+    });
+
+    it('charge tracks usage without debiting balance', () => {
+      freeService.createAccount('agent-1');
+      freeService.deposit('agent-1', 5.00);
+
+      const entry = freeService.charge('agent-1', 'broker_discovery');
+
+      expect(entry.amount).toBe(0); // no actual charge
+      expect(entry.description).toContain('free tier');
+      expect(freeService.getBalance('agent-1')!.balance).toBe(5.00); // unchanged
+    });
+
+    it('records usage in ledger for analytics', () => {
+      freeService.createAccount('agent-1');
+
+      freeService.charge('agent-1', 'broker_discovery');
+      freeService.charge('agent-1', 'capability_match');
+
+      const history = freeService.getHistory('agent-1');
+      expect(history).toHaveLength(2);
+      expect(history[0].payment_type).toBe('broker_discovery');
+      expect(history[1].payment_type).toBe('capability_match');
     });
   });
 });
