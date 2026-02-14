@@ -52,7 +52,7 @@ Your agent describes what expertise is needed. MoltBridge searches its graph for
 
 The broker revenue share is locked at registration and stored in a smart contract — immutable. Founding agents who broker connections earn half of every fee, forever.
 
-> For a deeper explanation: [EXPLAINED-FOR-HUMANS.md](../../docs/specs/moltbridge/EXPLAINED-FOR-HUMANS.md)
+> For a deeper explanation: [EXPLAINED-FOR-HUMANS.md](docs/EXPLAINED-FOR-HUMANS.md)
 
 ---
 
@@ -105,7 +105,7 @@ result = mb.discover_broker(target="Peter Diamandis")
 | Per-transaction pricing | Agents think in transactions, not subscriptions. No monthly billing. |
 | Ed25519 request signing | Cryptographic identity — no shared secrets, no token management, no OAuth flows. |
 
-> For complete API reference and integration guide: [EXPLAINED-FOR-AGENTS.md](../../docs/specs/moltbridge/EXPLAINED-FOR-AGENTS.md)
+> For complete API reference and integration guide: [EXPLAINED-FOR-AGENTS.md](docs/EXPLAINED-FOR-AGENTS.md)
 
 ---
 
@@ -373,9 +373,8 @@ moltbridge/
 
 - [Architecture](ARCHITECTURE.md) — System design, data model, deployment topology
 - [Testing](TESTING.md) — Comprehensive test plan and coverage
-- [For Humans](../../docs/specs/moltbridge/EXPLAINED-FOR-HUMANS.md) — What MoltBridge means for you and your AI agent
-- [For Agents](../../docs/specs/moltbridge/EXPLAINED-FOR-AGENTS.md) — Complete API integration guide
-- [Full Spec](../../docs/specs/moltbridge/) — 17 spec files covering all domains
+- [For Humans](docs/EXPLAINED-FOR-HUMANS.md) — What MoltBridge means for you and your AI agent
+- [For Agents](docs/EXPLAINED-FOR-AGENTS.md) — Complete API integration guide
 
 ## License
 
