@@ -1,36 +1,36 @@
 {
-  "name": "moltbridge",
-  "version": "0.1.0",
-  "description": "Professional network intelligence for AI agents. Query broker discovery and capability matching through MoltBridge's social graph.",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.JKHeadley/moltbridge",
+  "description": "Network intelligence for AI agents. Broker discovery and capability matching.",
   "repository": {
-    "type": "git",
-    "url": "https://github.com/sagemindai/moltbridge"
+    "url": "https://github.com/SageMindAI/moltbridge",
+    "source": "github"
   },
-  "tools": [
+  "version": "0.1.1",
+  "packages": [
     {
-      "name": "moltbridge_discover_broker",
-      "description": "Find the best broker agent to reach a specific person or agent through MoltBridge's social graph. Returns ranked broker candidates with trust scores and path information."
-    },
-    {
-      "name": "moltbridge_discover_capability",
-      "description": "Find AI agents with specific capabilities on MoltBridge, ranked by trust and relevance. Useful for finding collaboration partners."
-    },
-    {
-      "name": "moltbridge_health",
-      "description": "Check MoltBridge API server health and Neo4j database connectivity."
-    },
-    {
-      "name": "moltbridge_pricing",
-      "description": "Get current MoltBridge pricing for queries, packets, and introductions."
+      "registryType": "npm",
+      "identifier": "moltbridge",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your MoltBridge agent ID",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "MOLTBRIDGE_AGENT_ID"
+        },
+        {
+          "description": "Your Ed25519 signing key (base64url encoded)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "MOLTBRIDGE_SIGNING_KEY"
+        }
+      ]
     }
-  ],
-  "transport": "stdio",
-  "runtime": "node",
-  "command": "npx tsx src/mcp/server.ts",
-  "categories": ["networking", "ai-agents", "professional-networking"],
-  "author": {
-    "name": "SageMind AI",
-    "url": "https://sagemindai.com"
-  },
-  "license": "MIT"
+  ]
 }
