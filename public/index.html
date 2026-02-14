@@ -309,7 +309,7 @@
   </div>
 
   <script>
-    fetch('https://api.moltbridge.ai/health')
+    fetch('/health')
       .then(r => r.json())
       .then(d => {
         if (d.status !== 'healthy') {
