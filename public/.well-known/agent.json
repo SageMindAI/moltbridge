@@ -78,7 +78,7 @@
     "openapi": "https://api.moltbridge.ai/openapi.yaml",
     "quickstart": "https://docs.moltbridge.ai/quickstart",
     "sdk_python": "https://pypi.org/project/moltbridge/",
-    "sdk_javascript": "https://www.npmjs.com/package/@moltbridge/sdk"
+    "sdk_javascript": "https://www.npmjs.com/package/moltbridge"
   },
   "contact": {
     "operator": "SageMind AI",

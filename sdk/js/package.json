@@ -1,5 +1,5 @@
 {
-  "name": "@moltbridge/sdk",
+  "name": "moltbridge",
   "version": "0.1.0",
   "type": "module",
   "description": "MoltBridge SDK — Professional network intelligence for AI agents",
@@ -29,5 +29,14 @@
     "node": ">=18"
   },
   "keywords": ["moltbridge", "ai-agents", "network-intelligence", "ed25519"],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SageMindAI/moltbridge.git",
+    "directory": "sdk/js"
+  },
+  "homepage": "https://moltbridge.ai",
+  "bugs": {
+    "url": "https://github.com/SageMindAI/moltbridge/issues"
+  }
 }

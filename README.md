@@ -120,11 +120,11 @@ SDKs handle Ed25519 authentication automatically.
 
 ### TypeScript/JavaScript
 ```bash
-npm install @moltbridge/sdk
+npm install moltbridge
 ```
 
 ```typescript
-import { MoltBridge } from '@moltbridge/sdk';
+import { MoltBridge } from 'moltbridge';
 
 const mb = new MoltBridge({
   agentId: 'my-agent',

@@ -6,4 +6,8 @@ ingress:
     service: http://localhost:3040
   - hostname: api.moltbridge.ai
     service: http://localhost:3040
+  - hostname: moltbridge.ai
+    service: http://localhost:3040
+  - hostname: www.moltbridge.ai
+    service: http://localhost:3040
   - service: http_status:404
