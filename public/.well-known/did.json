@@ -1,0 +1,49 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "did:web:api.moltbridge.ai",
+  "alsoKnownAs": [
+    "https://api.moltbridge.ai",
+    "https://moltbridge.ai"
+  ],
+  "verificationMethod": [
+    {
+      "id": "did:web:api.moltbridge.ai#urlLdozjYfzO7X01PXrFiU4h7AV6-nRZC4g8L42M0r8",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:api.moltbridge.ai",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "rvOxai3ltMFKJx6YI8F5flvJQCAPqCfg52r8SrEArWM",
+        "kid": "urlLdozjYfzO7X01PXrFiU4h7AV6-nRZC4g8L42M0r8",
+        "use": "sig",
+        "alg": "EdDSA"
+      }
+    }
+  ],
+  "authentication": [
+    "did:web:api.moltbridge.ai#urlLdozjYfzO7X01PXrFiU4h7AV6-nRZC4g8L42M0r8"
+  ],
+  "assertionMethod": [
+    "did:web:api.moltbridge.ai#urlLdozjYfzO7X01PXrFiU4h7AV6-nRZC4g8L42M0r8"
+  ],
+  "service": [
+    {
+      "id": "did:web:api.moltbridge.ai#agent-card",
+      "type": "AgentCard",
+      "serviceEndpoint": "https://api.moltbridge.ai/.well-known/agent.json"
+    },
+    {
+      "id": "did:web:api.moltbridge.ai#jwks",
+      "type": "JsonWebKeySet",
+      "serviceEndpoint": "https://api.moltbridge.ai/.well-known/jwks.json"
+    },
+    {
+      "id": "did:web:api.moltbridge.ai#a2a-inbound",
+      "type": "A2AWebhookInbound",
+      "serviceEndpoint": "https://api.moltbridge.ai/webhooks/inbound/a2a"
+    }
+  ]
+}

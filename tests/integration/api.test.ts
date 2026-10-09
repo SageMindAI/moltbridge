@@ -5,11 +5,15 @@
  * Tests the complete request/response cycle including middleware.
  */
 
+// Prevent hex-encoded env var from poisoning the Ed25519 key loader
+delete process.env.MOLTBRIDGE_SIGNING_KEY;
+
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import * as crypto from 'crypto';
 import { generateTestKeyPair, signRequest, solveChallenge } from '../helpers/crypto';
+import { _challenges } from '../../src/services/verification';
 
 // Mock Neo4j before any imports that use it
 const mockSession = {
@@ -41,6 +45,12 @@ beforeEach(async () => {
   // Reset the mock session
   mockSession.run.mockResolvedValue({ records: [] });
   mockDriver.session.mockReturnValue(mockSession);
+
+  // Re-establish Neo4j module mocks cleared by vi.clearAllMocks()
+  const neo4j = await import('../../src/db/neo4j');
+  (neo4j.getDriver as any).mockReturnValue(mockDriver);
+  (neo4j.verifyConnectivity as any).mockResolvedValue(true);
+
   // Dynamic import to avoid triggering module load before mocks are established
   const { clearReplayCache } = await import('../../src/middleware/auth');
   clearReplayCache(); // Prevent replay-detection false positives between tests
@@ -49,6 +59,21 @@ beforeEach(async () => {
   const { limiter } = await import('../../src/middleware/ratelimit');
   limiter.reset();
 });
+
+/**
+ * Helper: complete the two-layer verification flow and return a valid token.
+ * Solves both computational (proof-of-work) and cognitive challenges.
+ */
+async function getVerificationToken(): Promise<string> {
+  const challengeRes = await request(app).post('/verify').send({});
+  const { challenge_id, nonce, difficulty } = challengeRes.body;
+  const solution = solveChallenge(nonce, difficulty);
+  const cognitiveAnswer = _challenges.get(challenge_id)!.cognitive_answer;
+  const verifyRes = await request(app)
+    .post('/verify')
+    .send({ challenge_id, proof_of_work: solution, cognitive_answer: cognitiveAnswer });
+  return verifyRes.body.token;
+}
 
 describe('GET /health', () => {
   it('returns 200 with healthy status when Neo4j connected', async () => {
@@ -75,6 +100,101 @@ describe('GET /.well-known/jwks.json', () => {
   });
 });
 
+describe('GET /agents/:agentId/public-key', () => {
+  it('returns 404 when agent not found', async () => {
+    mockSession.run.mockResolvedValueOnce({ records: [] });
+    const res = await request(app).get('/agents/nonexistent-agent/public-key');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns public key for registered agent', async () => {
+    const pubkey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const verifiedAt = '2026-03-10T12:00:00.000Z';
+    mockSession.run.mockResolvedValueOnce({
+      records: [{
+        get: (key: string) => {
+          if (key === 'a') {
+            return {
+              properties: {
+                id: 'dawn-001',
+                name: 'Dawn',
+                platform: 'portal',
+                trust_score: 0.9,
+                capabilities: ['reasoning'],
+                verified_at: verifiedAt,
+                pubkey,
+              },
+            };
+          }
+          return null;
+        },
+      }],
+    });
+
+    const res = await request(app).get('/agents/dawn-001/public-key');
+    expect(res.status).toBe(200);
+    expect(res.body.agent_id).toBe('dawn-001');
+    expect(res.body.public_key).toBe(pubkey);
+    expect(res.body.key_format).toBe('ed25519');
+    expect(res.body.encoding).toBe('base64url');
+    expect(res.body.registered_at).toBe(verifiedAt);
+    expect(res.headers['cache-control']).toContain('public');
+  });
+
+  it('returns 400 for invalid agent_id format', async () => {
+    const res = await request(app).get('/agents/../../../etc/passwd/public-key');
+    expect([400, 404]).toContain(res.status);
+  });
+});
+
+describe('GET /agents/:agentId/did.json', () => {
+  it('returns 404 when agent not found', async () => {
+    mockSession.run.mockResolvedValueOnce({ records: [] });
+    const res = await request(app).get('/agents/nonexistent-agent/did.json');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns a did:web DID document for a registered agent', async () => {
+    const pubkey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    mockSession.run.mockResolvedValueOnce({
+      records: [{
+        get: (key: string) => {
+          if (key === 'a') {
+            return {
+              properties: {
+                id: 'dawn-001',
+                name: 'Dawn',
+                platform: 'portal',
+                trust_score: 0.9,
+                capabilities: ['reasoning'],
+                verified_at: '2026-03-10T12:00:00.000Z',
+                pubkey,
+              },
+            };
+          }
+          return null;
+        },
+      }],
+    });
+
+    const res = await request(app).get('/agents/dawn-001/did.json');
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe('did:web:api.moltbridge.ai:agents:dawn-001');
+    expect(res.body.controller).toBe('did:web:api.moltbridge.ai');
+    expect(res.body.verificationMethod[0].publicKeyJwk.x).toBe(pubkey);
+    expect(res.body.verificationMethod[0].publicKeyJwk.crv).toBe('Ed25519');
+    expect(res.body.verificationMethod[0].id).toBe('did:web:api.moltbridge.ai:agents:dawn-001#key-1');
+    expect(res.body.authentication).toContain('did:web:api.moltbridge.ai:agents:dawn-001#key-1');
+    expect(res.body.assertionMethod).toContain('did:web:api.moltbridge.ai:agents:dawn-001#key-1');
+    expect(res.headers['cache-control']).toContain('public');
+  });
+
+  it('returns 400/404 for invalid agent_id format', async () => {
+    const res = await request(app).get('/agents/../../../etc/passwd/did.json');
+    expect([400, 404]).toContain(res.status);
+  });
+});
+
 describe('POST /verify', () => {
   it('generates challenge when no challenge_id provided', async () => {
     const res = await request(app)
@@ -96,13 +216,16 @@ describe('POST /verify', () => {
 
     const { challenge_id, nonce, difficulty } = challengeRes.body;
 
-    // Step 2: Solve it
+    // Step 2: Solve computational challenge
     const solution = solveChallenge(nonce, difficulty);
 
-    // Step 3: Submit solution
+    // Step 3: Get cognitive answer from internal challenge store
+    const cognitiveAnswer = _challenges.get(challenge_id)!.cognitive_answer;
+
+    // Step 4: Submit both solutions
     const verifyRes = await request(app)
       .post('/verify')
-      .send({ challenge_id, proof_of_work: solution });
+      .send({ challenge_id, proof_of_work: solution, cognitive_answer: cognitiveAnswer });
 
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.verified).toBe(true);
@@ -138,14 +261,8 @@ describe('POST /register', () => {
   it('registers a new agent with valid data', async () => {
     const keyPair = generateTestKeyPair();
 
-    // Get a valid verification token first
-    const challengeRes = await request(app).post('/verify').send({});
-    const { challenge_id, nonce, difficulty } = challengeRes.body;
-    const solution = solveChallenge(nonce, difficulty);
-    const verifyRes = await request(app)
-      .post('/verify')
-      .send({ challenge_id, proof_of_work: solution });
-    const token = verifyRes.body.token;
+    // Get a valid verification token (both computational + cognitive layers)
+    const token = await getVerificationToken();
 
     // Mock Neo4j responses for registration
     const agentNode = {
@@ -190,11 +307,7 @@ describe('POST /register', () => {
 
   it('returns omniscience disclosure when not acknowledged', async () => {
     const keyPair2 = generateTestKeyPair();
-    const challengeRes2 = await request(app).post('/verify').send({});
-    const solution2 = solveChallenge(challengeRes2.body.nonce, challengeRes2.body.difficulty);
-    const verifyRes2 = await request(app)
-      .post('/verify')
-      .send({ challenge_id: challengeRes2.body.challenge_id, proof_of_work: solution2 });
+    const token2 = await getVerificationToken();
 
     const res = await request(app)
       .post('/register')
@@ -205,7 +318,7 @@ describe('POST /register', () => {
         pubkey: keyPair2.publicKeyB64,
         capabilities: [],
         clusters: [],
-        verification_token: verifyRes2.body.token,
+        verification_token: token2,
         // Missing: omniscience_acknowledged, article22_consent
       });
 
@@ -220,11 +333,7 @@ describe('POST /register', () => {
 
   it('returns article22 info when omniscience acknowledged but article22 missing', async () => {
     const keyPair3 = generateTestKeyPair();
-    const challengeRes3 = await request(app).post('/verify').send({});
-    const solution3 = solveChallenge(challengeRes3.body.nonce, challengeRes3.body.difficulty);
-    const verifyRes3 = await request(app)
-      .post('/verify')
-      .send({ challenge_id: challengeRes3.body.challenge_id, proof_of_work: solution3 });
+    const token3 = await getVerificationToken();
 
     const res = await request(app)
       .post('/register')
@@ -235,7 +344,7 @@ describe('POST /register', () => {
         pubkey: keyPair3.publicKeyB64,
         capabilities: [],
         clusters: [],
-        verification_token: verifyRes3.body.token,
+        verification_token: token3,
         omniscience_acknowledged: true,
         // Missing: article22_consent
       });
@@ -277,13 +386,7 @@ describe('POST /register', () => {
 
   it('rejects duplicate agent_id (409 CONFLICT)', async () => {
     const keyPair = generateTestKeyPair();
-
-    // Get valid token
-    const challengeRes = await request(app).post('/verify').send({});
-    const solution = solveChallenge(challengeRes.body.nonce, challengeRes.body.difficulty);
-    const verifyRes = await request(app)
-      .post('/verify')
-      .send({ challenge_id: challengeRes.body.challenge_id, proof_of_work: solution });
+    const token = await getVerificationToken();
 
     // Mock: agent already exists
     mockSession.run.mockResolvedValueOnce({
@@ -299,7 +402,7 @@ describe('POST /register', () => {
         pubkey: keyPair.publicKeyB64,
         capabilities: ['ai-research'],
         clusters: [],
-        verification_token: verifyRes.body.token,
+        verification_token: token,
         omniscience_acknowledged: true,
         article22_consent: true,
       });
@@ -641,13 +744,7 @@ describe('Security', () => {
 
   it('rejects Cypher injection in agent_id during registration', async () => {
     const keyPair = generateTestKeyPair();
-
-    // Get valid token
-    const challengeRes = await request(app).post('/verify').send({});
-    const solution = solveChallenge(challengeRes.body.nonce, challengeRes.body.difficulty);
-    const verifyRes = await request(app)
-      .post('/verify')
-      .send({ challenge_id: challengeRes.body.challenge_id, proof_of_work: solution });
+    const token = await getVerificationToken();
 
     const res = await request(app)
       .post('/register')
@@ -658,7 +755,7 @@ describe('Security', () => {
         pubkey: keyPair.publicKeyB64,
         capabilities: [],
         clusters: [],
-        verification_token: verifyRes.body.token,
+        verification_token: token,
         omniscience_acknowledged: true,
         article22_consent: true,
       });

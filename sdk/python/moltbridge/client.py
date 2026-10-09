@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import httpx
 
@@ -34,6 +34,9 @@ from moltbridge.types import (
     ConsentRecord,
     ConsentStatus,
     CredibilityPacket,
+    FeedbackComment,
+    FeedbackQuality,
+    FeedbackTicket,
     IQSResult,
     LedgerEntry,
     VerificationChallenge,
@@ -566,6 +569,79 @@ class MoltBridge:
         }
         return self._request("POST", "/report-outcome", body=body)
 
+    def create_introduction(
+        self,
+        introduction_id: str,
+        requester_id: str,
+        broker_id: str,
+        target_id: str,
+        trust_policy: Optional[dict] = None,
+        trust_override: Optional[Union[dict, list[dict]]] = None,
+    ) -> dict:
+        """Register an introduction — entry into the economic relationship.
+
+        The pre-escrow trust gate runs first. If it refuses the handoff, no
+        record is created and a MoltBridgeError with code TRUST_GATE_BLOCKED is
+        raised. On success the gate's verdict travels on the response under
+        ``gate``, including when it was an allow on no evidence.
+
+        Args:
+            trust_policy: Tighten the gate for this handoff only, e.g.
+                ``{"require_evidence": True}``.
+            trust_override: Proceed despite a blocking decision. Each entry must
+                name ``counterparty_agent_id`` and state a ``reason`` of at
+                least 8 characters. The decision is not rewritten to 'allow'.
+        """
+        body: dict = {
+            "introduction_id": introduction_id,
+            "requester_id": requester_id,
+            "broker_id": broker_id,
+            "target_id": target_id,
+        }
+        if trust_policy is not None:
+            body["trust_policy"] = trust_policy
+        if trust_override is not None:
+            body["trust_override"] = trust_override
+        return self._request("POST", "/outcomes", body=body)
+
+    # ========================
+    # Pre-Escrow Trust Gate (PROP-881)
+    # ========================
+
+    def verify_pre_escrow_trust(
+        self,
+        counterparty_agent_id: str,
+        counterparty_role: Optional[str] = None,
+        introduction_id: Optional[str] = None,
+        trust_policy: Optional[dict] = None,
+        trust_override: Optional[Union[dict, list[dict]]] = None,
+    ) -> dict:
+        """Check a counterparty BEFORE committing to an economic handoff.
+
+        Evaluation only — nothing on the network changes. The same gate enforces
+        when you register the introduction via :meth:`create_introduction`.
+
+        Read ``assessment["allowed"]`` to decide whether to proceed, and
+        ``assessment["evidence_basis"]`` to know what the answer rests on:
+        ``behavioral`` means the counterparty's own outcome record,
+        ``declared_only`` means attestations alone, and ``none`` means nothing is
+        known either way. An allow on ``none`` is not a verified pass.
+        """
+        body: dict = {"counterparty_agent_id": counterparty_agent_id}
+        if counterparty_role is not None:
+            body["counterparty_role"] = counterparty_role
+        if introduction_id is not None:
+            body["introduction_id"] = introduction_id
+        if trust_policy is not None:
+            body["trust_policy"] = trust_policy
+        if trust_override is not None:
+            body["trust_override"] = trust_override
+        return self._request("POST", "/trust/pre-escrow", body=body)
+
+    def pre_escrow_policy(self) -> dict:
+        """The trust policy the gate applies, and which fields you may override."""
+        return self._request("GET", "/trust/pre-escrow/policy", auth=False)
+
     # ========================
     # IQS (Introduction Quality Score)
     # ========================
@@ -616,13 +692,17 @@ class MoltBridge:
 
         consents = {}
         for purpose, record in data.get("consents", {}).items():
-            consents[purpose] = ConsentRecord(
-                purpose=purpose,
-                granted=record.get("granted", False),
-                granted_at=record.get("granted_at"),
-                withdrawn_at=record.get("withdrawn_at"),
-                mechanism=record.get("mechanism"),
-            )
+            if isinstance(record, bool):
+                # Server may return bare booleans for auto-granted consents
+                consents[purpose] = ConsentRecord(purpose=purpose, granted=record)
+            elif isinstance(record, dict):
+                consents[purpose] = ConsentRecord(
+                    purpose=purpose,
+                    granted=record.get("granted", False),
+                    granted_at=record.get("granted_at"),
+                    withdrawn_at=record.get("withdrawn_at"),
+                    mechanism=record.get("mechanism"),
+                )
 
         return ConsentStatus(
             consents=consents,
@@ -675,7 +755,9 @@ class MoltBridge:
             agent_id=b["agent_id"],
             balance=b["balance"],
             broker_tier=b["broker_tier"],
-            commission_rate=b["commission_rate"],
+            commission_rate=b.get("commission_rate", 0.0),
+            total_spent=b.get("total_spent", 0.0),
+            total_earned=b.get("total_earned", 0.0),
         )
 
     def deposit(self, amount: float) -> LedgerEntry:
@@ -752,3 +834,173 @@ class MoltBridge:
             body={"endpoint_url": endpoint_url},
         )
         return data.get("removed", False)
+
+    # ========================
+    # Feedback (Spec 21)
+    # ========================
+
+    def report_bug(
+        self,
+        title: str,
+        description: str,
+        endpoint: Optional[str] = None,
+        expected: Optional[str] = None,
+        actual: Optional[str] = None,
+        reproducible: bool = False,
+        steps_to_reproduce: Optional[list[str]] = None,
+        sdk_version: Optional[str] = None,
+        priority: Optional[str] = None,
+    ) -> FeedbackTicket:
+        """
+        Report a bug. Returns a ticket for tracking.
+
+        Args:
+            title: Short summary of the bug.
+            description: Detailed description.
+            endpoint: API endpoint affected.
+            expected: What you expected to happen.
+            actual: What actually happened.
+            reproducible: Whether the bug is consistently reproducible.
+            steps_to_reproduce: Steps to reproduce the bug.
+            sdk_version: SDK version you're using.
+            priority: Override auto-priority (critical/high/medium/low).
+        """
+        body: dict = {
+            "type": "bug",
+            "title": title,
+            "description": description,
+            "reproducible": reproducible,
+        }
+        if priority:
+            body["priority"] = priority
+        if steps_to_reproduce:
+            body["steps_to_reproduce"] = steps_to_reproduce
+
+        context: dict = {}
+        if endpoint:
+            context["endpoint"] = endpoint
+        if expected:
+            context["expected"] = expected
+        if actual:
+            context["actual"] = actual
+        if sdk_version:
+            context["sdk_version"] = sdk_version
+        if context:
+            body["context"] = context
+
+        data = self._request("POST", "/feedback", body=body)
+        return FeedbackTicket(
+            ticket_id=data["ticket_id"],
+            type=data.get("type", "bug"),
+            title=title,
+            status=data["status"],
+            priority=data["priority"],
+            created_at=data["created_at"],
+            updated_at=data["created_at"],
+            similar_tickets=data.get("similar_tickets"),
+        )
+
+    def request_feature(
+        self,
+        title: str,
+        description: str,
+        use_case: Optional[str] = None,
+        proposed_api: Optional[str] = None,
+        impact: Optional[str] = None,
+    ) -> FeedbackTicket:
+        """
+        Request a feature. Auto-votes for your own request.
+
+        Args:
+            title: Short summary of the feature.
+            description: Detailed description.
+            use_case: How you'd use this feature.
+            proposed_api: Suggested API design.
+            impact: What impact this would have on your workflow.
+        """
+        body: dict = {
+            "title": title,
+            "description": description,
+        }
+        if use_case:
+            body["use_case"] = use_case
+        if proposed_api:
+            body["proposed_api"] = proposed_api
+        if impact:
+            body["impact"] = impact
+
+        data = self._request("POST", "/feedback/feature", body=body)
+        return FeedbackTicket(
+            ticket_id=data["ticket_id"],
+            type="feature_request",
+            title=title,
+            status=data["status"],
+            priority="medium",
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("created_at", ""),
+            vote_count=data.get("vote_count", 1),
+            similar_tickets=data.get("similar_requests"),
+        )
+
+    def feedback_status(self, ticket_id: str) -> FeedbackTicket:
+        """Get the current status of a feedback ticket."""
+        data = self._request("GET", f"/feedback/{ticket_id}")
+        return FeedbackTicket(
+            ticket_id=data["ticket_id"],
+            type=data["type"],
+            title=data["title"],
+            status=data["status"],
+            priority=data["priority"],
+            created_at=data["created_at"],
+            updated_at=data["updated_at"],
+            vote_count=data.get("vote_count", 0),
+            resolution=data.get("resolution"),
+        )
+
+    def list_feedback(self) -> list[FeedbackTicket]:
+        """List all feedback submitted by this agent."""
+        data = self._request("GET", "/feedback")
+        return [
+            FeedbackTicket(
+                ticket_id=t["ticket_id"],
+                type=t["type"],
+                title=t["title"],
+                status=t["status"],
+                priority=t["priority"],
+                created_at=t["created_at"],
+                updated_at=t["updated_at"],
+                resolution=t.get("resolution"),
+            )
+            for t in data.get("tickets", [])
+        ]
+
+    def vote_feedback(self, ticket_id: str) -> dict:
+        """Vote on a feature request. Returns vote count."""
+        return self._request("POST", f"/feedback/{ticket_id}/vote")
+
+    def comment_feedback(self, ticket_id: str, comment: str) -> FeedbackComment:
+        """Add a comment to a feedback ticket."""
+        data = self._request(
+            "POST",
+            f"/feedback/{ticket_id}/comment",
+            body={"comment": comment},
+        )
+        return FeedbackComment(
+            comment_id=data["comment_id"],
+            agent_id=data["agent_id"],
+            ticket_id=data["ticket_id"],
+            comment=data["comment"],
+            created_at=data["created_at"],
+        )
+
+    def feedback_quality(self) -> FeedbackQuality:
+        """Get your feedback quality score and trust adjustment."""
+        data = self._request("GET", "/feedback/quality")
+        return FeedbackQuality(
+            total_submissions=data["total_submissions"],
+            confirmed_bugs=data["confirmed_bugs"],
+            useful_features=data["useful_features"],
+            spam_reports=data["spam_reports"],
+            quality_score=data["quality_score"],
+            trust_adjustment=data.get("trust_adjustment", 0.0),
+        )

@@ -53,37 +53,23 @@
 
 ---
 
-## Phase 3: SDK Publishing (20 minutes)
+## Phase 3: SDK Publishing -- COMPLETE
 
-### 8. Publish TypeScript SDK
-- [ ] Update version in `sdk/js/package.json` if needed
-- [ ] Build:
-  ```bash
-  cd sdk/js && pnpm build
-  ```
-- [ ] Publish:
-  ```bash
-  npm publish --access public
-  ```
-  Package: `@moltbridge/sdk`
+### 8. Publish TypeScript SDK -- DONE
+- [x] Published as `moltbridge` on npm (v0.1.4, 5 versions)
+- [x] Includes CLI: `npx moltbridge init`, `npx moltbridge serve`
+- [x] Maintainer: jkheadley
+- Note: Package name is `moltbridge` (not `@moltbridge/sdk` as originally planned)
 
-### 9. Publish Python SDK
-- [ ] Update version in `sdk/python/pyproject.toml` if needed
-- [ ] Build:
-  ```bash
-  cd sdk/python && python -m build
-  ```
-- [ ] Publish:
-  ```bash
-  twine upload dist/*
-  ```
-  Package: `moltbridge`
+### 9. Publish Python SDK -- DONE
+- [x] Published as `moltbridge` on PyPI (v0.1.2, 3 versions)
+- [x] Install: `pip install moltbridge`
 
 ---
 
 ## Phase 4: Directory Listings (15 minutes)
 
-### 10. MCP Registry (Official)
+### 10. MCP Registry (Official) -- NOT YET SUBMITTED
 - [ ] Clone registry tools:
   ```bash
   git clone https://github.com/modelcontextprotocol/registry
@@ -98,18 +84,19 @@
   ./bin/mcp-publisher publish
   ```
   Server metadata: `src/mcp/server.json`
+  npm mcpName: `io.github.JKHeadley/moltbridge`
 
-### 11. PulseMCP Listing
+### 11. MCPMarket -- DONE
+- [x] Submitted and confirmed (2026-02-15)
+
+### 12. PulseMCP Listing
 - [ ] Submit at [pulsemcp.com/submit](https://pulsemcp.com/submit)
 - [ ] URL: GitHub repository URL
 - [ ] PulseMCP ingests from the official registry weekly, so this may happen automatically after step 10.
 
-### 12. A2A Agent Card
+### 13. A2A Agent Card -- DONE
 - [x] Agent card served at `/.well-known/agent.json`
-- [ ] Verify at final URL:
-  ```bash
-  curl https://api.moltbridge.ai/.well-known/agent.json
-  ```
+- [x] Verified at production URL: `curl https://api.moltbridge.ai/.well-known/agent.json`
 
 ---
 

@@ -39,6 +39,20 @@ import type {
   DiscoverCapabilityOptions,
   AttestOptions,
   IQSEvaluateOptions,
+  FeedbackSubmitResponse,
+  FeatureRequestResponse,
+  FeedbackTicketSummary,
+  FeedbackTicketDetail,
+  FeedbackVoteResponse,
+  FeedbackCommentResponse,
+  FeedbackQuality,
+  ReportBugOptions,
+  RequestFeatureOptions,
+  PreEscrowVerifyOptions,
+  PreEscrowVerifyResponse,
+  PreEscrowPolicyResponse,
+  CreateIntroductionOptions,
+  CreateIntroductionResponse,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://api.moltbridge.ai';
@@ -180,15 +194,19 @@ export class MoltBridge {
       challenge_id: challengeData.challenge_id as string,
       nonce: challengeData.nonce as string,
       difficulty: challengeData.difficulty as number,
-      timestamp: challengeData.expires_at as string,
+      timestamp: (challengeData.timestamp ?? challengeData.expires_at ?? '') as string,
     };
 
     const targetPrefix = '0'.repeat(challenge.difficulty);
     const proof = this._solveChallenge(challenge.nonce, targetPrefix);
 
+    // Solve cognitive challenge (obfuscated math)
+    const cognitiveChallenge = (challengeData.cognitive_challenge as any)?.text as string | undefined;
+    const cognitiveAnswer = cognitiveChallenge ? this._solveCognitiveChallenge(cognitiveChallenge) : undefined;
+
     const result = await this._request<Record<string, unknown>>(
       'POST', '/verify',
-      { body: { challenge_id: challenge.challenge_id, proof_of_work: proof }, auth: false },
+      { body: { challenge_id: challenge.challenge_id, proof_of_work: proof, cognitive_answer: cognitiveAnswer }, auth: false },
     );
 
     this._verificationToken = (result.token as string) ?? null;
@@ -207,6 +225,148 @@ export class MoltBridge {
       counter++;
     }
     throw new MoltBridgeError('Challenge solving exceeded 10M iterations', 0, 'CHALLENGE_TIMEOUT');
+  }
+
+  /**
+   * Solve an obfuscated cognitive math challenge.
+   *
+   * Format: "sOlVe: <obfuscated_number_word> <obfuscated_operation> <obfuscated_number_word>"
+   * Obfuscation: random case, doubled chars, noise chars (~, ^, -, _, .)
+   *
+   * Example: "sOlVe: ttwEnnTTYY ffOuu.rr_ tI_MES twenn~tt^Y~ FF-i.VVe^"
+   *          → "twenty four times twenty five" → 24 * 25 → "600.00"
+   */
+  /**
+   * Solve an obfuscated cognitive math challenge.
+   *
+   * Format: "sOlVe: <obfuscated_number_word> <obfuscated_operation> <obfuscated_number_word>"
+   * Obfuscation: random case, doubled chars (1-2x), noise chars (-, /, ^, *, ~, ., _)
+   *
+   * Strategy: strip noise, lowercase, then fuzzy-match against known words
+   * rather than collapsing duplicates (which destroys words like "three", "seventeen").
+   */
+  private _solveCognitiveChallenge(text: string): string {
+    // Strip "sOlVe: " prefix
+    const body = text.replace(/^solve:\s*/i, '');
+
+    // Step 1: lowercase and strip noise characters
+    const cleaned = body
+      .toLowerCase()
+      .replace(/[~^_.\-*/]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Step 2: split into space-separated tokens and deobfuscate each
+    const tokens = cleaned.split(' ').map(tok => this._deobfuscateToken(tok));
+    const deobfuscated = tokens.join(' ');
+
+    // Number word lookup
+    const WORDS_TO_NUM: Record<string, number> = {
+      zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+      six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+      eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+      sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+      thirty: 30, forty: 40, fifty: 50,
+    };
+
+    // Known words for fuzzy matching
+    const ALL_KNOWN = [
+      ...Object.keys(WORDS_TO_NUM),
+      'plus', 'times',
+    ];
+
+    // Find the operation and split
+    let operation: 'plus' | 'times';
+    let parts: string[];
+
+    if (deobfuscated.includes(' plus ')) {
+      operation = 'plus';
+      parts = deobfuscated.split(' plus ');
+    } else if (deobfuscated.includes(' times ')) {
+      operation = 'times';
+      parts = deobfuscated.split(' times ');
+    } else {
+      throw new MoltBridgeError(`Cannot parse cognitive challenge: "${text}"`, 0, 'COGNITIVE_PARSE_ERROR');
+    }
+
+    if (parts.length !== 2) {
+      throw new MoltBridgeError(`Unexpected cognitive challenge structure: "${text}"`, 0, 'COGNITIVE_PARSE_ERROR');
+    }
+
+    // Parse number words (handles "twenty four" = 20 + 4)
+    const parseNumber = (words: string): number => {
+      const wordTokens = words.trim().split(/\s+/);
+      let total = 0;
+      for (const token of wordTokens) {
+        let val = WORDS_TO_NUM[token];
+        if (val === undefined) {
+          // Fuzzy match: find the known word whose de-duped form matches
+          const match = ALL_KNOWN.find(w => this._dedupeSignature(w) === this._dedupeSignature(token));
+          if (match) val = WORDS_TO_NUM[match];
+        }
+        if (val === undefined) {
+          throw new MoltBridgeError(`Unknown number word: "${token}" in "${text}"`, 0, 'COGNITIVE_PARSE_ERROR');
+        }
+        total += val;
+      }
+      return total;
+    };
+
+    const a = parseNumber(parts[0]);
+    const b = parseNumber(parts[1]);
+    const result = operation === 'plus' ? a + b : a * b;
+
+    return result.toFixed(2);
+  }
+
+  /**
+   * Deobfuscate a single token by collapsing runs of the same character,
+   * but preserving legitimate double letters by matching against known words.
+   */
+  private _deobfuscateToken(token: string): string {
+    const KNOWN_WORDS = [
+      'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+      'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen',
+      'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty',
+      'thirty', 'forty', 'fifty', 'plus', 'times',
+    ];
+
+    // Try collapsing all runs first
+    const collapsed = token.replace(/(.)\1+/g, '$1');
+    if (KNOWN_WORDS.includes(collapsed)) return collapsed;
+
+    // If that didn't work, try preserving specific double letters
+    // The obfuscation repeats each char 1-2x, so 'ee' in 'three' becomes 'eee' or 'eeee'
+    // Strategy: for each known word, check if the token could be its obfuscated form
+    for (const word of KNOWN_WORDS) {
+      if (this._matchesObfuscated(token, word)) return word;
+    }
+
+    // Fall back to collapsed form
+    return collapsed;
+  }
+
+  /**
+   * Check if an obfuscated token could be the result of obfuscating a known word.
+   * Each char in the word may appear 1-2 times in the obfuscated token.
+   */
+  private _matchesObfuscated(obfuscated: string, word: string): boolean {
+    let oi = 0;
+    for (let wi = 0; wi < word.length; wi++) {
+      const ch = word[wi];
+      if (oi >= obfuscated.length || obfuscated[oi] !== ch) return false;
+      oi++; // consume first occurrence
+      // Consume optional extra occurrences (obfuscation repeats 1-2x total)
+      while (oi < obfuscated.length && obfuscated[oi] === ch) oi++;
+    }
+    return oi === obfuscated.length;
+  }
+
+  /**
+   * Create a "deduplicated signature" of a string for fuzzy comparison.
+   */
+  private _dedupeSignature(s: string): string {
+    return s.replace(/(.)\1+/g, '$1');
   }
 
   // ========================
@@ -385,6 +545,69 @@ export class MoltBridge {
     });
   }
 
+  /**
+   * Register an introduction — entry into the economic relationship.
+   *
+   * The pre-escrow trust gate runs first and can refuse the handoff, in which
+   * case no record is created and a MoltBridgeError with code
+   * TRUST_GATE_BLOCKED is thrown. On success the gate's verdict travels on the
+   * response under `gate`, including when it was an allow on no evidence.
+   */
+  async createIntroduction(options: CreateIntroductionOptions): Promise<CreateIntroductionResponse> {
+    const body: Record<string, unknown> = {
+      introduction_id: options.introductionId,
+      requester_id: options.requesterId,
+      broker_id: options.brokerId,
+      target_id: options.targetId,
+    };
+    if (options.policy) body.trust_policy = options.policy;
+    if (options.override) body.trust_override = options.override;
+    return this._request('POST', '/outcomes', { body });
+  }
+
+  // ========================
+  // Pre-Escrow Trust Gate (PROP-881)
+  // ========================
+
+  /**
+   * Check a counterparty BEFORE committing to an economic handoff.
+   *
+   * Evaluation only — nothing on the network changes. The same gate enforces
+   * when you register the introduction via {@link createIntroduction}.
+   *
+   * Read `assessment.allowed` to decide whether to proceed, and
+   * `assessment.evidence_basis` to know what the answer rests on: `behavioral`
+   * means the counterparty's own outcome record, `declared_only` means
+   * attestations alone, and `none` means nothing is known either way. An allow
+   * on `none` is not a verified pass.
+   *
+   * @example
+   * ```typescript
+   * const { assessment } = await mb.verifyPreEscrowTrust({
+   *   counterpartyAgentId: 'some-agent',
+   *   policy: { require_evidence: true },
+   * });
+   * if (!assessment.allowed) {
+   *   console.log(assessment.reasons.filter(r => r.blocking));
+   * }
+   * ```
+   */
+  async verifyPreEscrowTrust(options: PreEscrowVerifyOptions): Promise<PreEscrowVerifyResponse> {
+    const body: Record<string, unknown> = {
+      counterparty_agent_id: options.counterpartyAgentId,
+    };
+    if (options.counterpartyRole) body.counterparty_role = options.counterpartyRole;
+    if (options.introductionId) body.introduction_id = options.introductionId;
+    if (options.policy) body.trust_policy = options.policy;
+    if (options.override) body.trust_override = options.override;
+    return this._request('POST', '/trust/pre-escrow', { body });
+  }
+
+  /** The trust policy the gate applies, and which fields you may override. No auth required. */
+  async preEscrowPolicy(): Promise<PreEscrowPolicyResponse> {
+    return this._request('GET', '/trust/pre-escrow/policy', { auth: false });
+  }
+
   // ========================
   // IQS (Introduction Quality Score)
   // ========================
@@ -484,5 +707,71 @@ export class MoltBridge {
       body: { endpoint_url: endpointUrl },
     });
     return (data.removed as boolean) ?? false;
+  }
+
+  // ========================
+  // Feedback (Spec 21)
+  // ========================
+
+  /** Report a bug. Returns a ticket for tracking. */
+  async reportBug(options: ReportBugOptions): Promise<FeedbackSubmitResponse> {
+    const body: Record<string, unknown> = {
+      type: 'bug',
+      title: options.title,
+      description: options.description,
+      reproducible: options.reproducible ?? false,
+    };
+    if (options.priority) body.priority = options.priority;
+    if (options.stepsToReproduce) body.steps_to_reproduce = options.stepsToReproduce;
+
+    const context: Record<string, unknown> = {};
+    if (options.endpoint) context.endpoint = options.endpoint;
+    if (options.expected) context.expected = options.expected;
+    if (options.actual) context.actual = options.actual;
+    if (options.sdkVersion) context.sdk_version = options.sdkVersion;
+    if (options.sdkLanguage) context.sdk_language = options.sdkLanguage;
+    if (Object.keys(context).length > 0) body.context = context;
+
+    return this._request('POST', '/feedback', { body });
+  }
+
+  /** Request a feature. Auto-votes for your own request. */
+  async requestFeature(options: RequestFeatureOptions): Promise<FeatureRequestResponse> {
+    const body: Record<string, unknown> = {
+      title: options.title,
+      description: options.description,
+    };
+    if (options.useCase) body.use_case = options.useCase;
+    if (options.proposedApi) body.proposed_api = options.proposedApi;
+    if (options.impact) body.impact = options.impact;
+
+    return this._request('POST', '/feedback/feature', { body });
+  }
+
+  /** Get the current status of a feedback ticket. */
+  async feedbackStatus(ticketId: string): Promise<FeedbackTicketDetail> {
+    return this._request('GET', `/feedback/${encodeURIComponent(ticketId)}`);
+  }
+
+  /** List all feedback submitted by this agent. */
+  async listFeedback(): Promise<{ tickets: FeedbackTicketSummary[]; total: number }> {
+    return this._request('GET', '/feedback');
+  }
+
+  /** Vote on a feature request. */
+  async voteFeedback(ticketId: string): Promise<FeedbackVoteResponse> {
+    return this._request('POST', `/feedback/${encodeURIComponent(ticketId)}/vote`, { body: {} });
+  }
+
+  /** Add a comment to a feedback ticket. */
+  async commentFeedback(ticketId: string, comment: string): Promise<FeedbackCommentResponse> {
+    return this._request('POST', `/feedback/${encodeURIComponent(ticketId)}/comment`, {
+      body: { comment },
+    });
+  }
+
+  /** Get your feedback quality score and trust adjustment. */
+  async feedbackQuality(): Promise<FeedbackQuality> {
+    return this._request('GET', '/feedback/quality');
   }
 }

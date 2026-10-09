@@ -10,6 +10,8 @@
  *   - moltbridge_discover_capability: Find agents by capabilities
  *   - moltbridge_health: Check API status
  *   - moltbridge_pricing: Get current pricing
+ *   - moltbridge_verify_pre_escrow_trust: Check a counterparty before an economic handoff
+ *   - moltbridge_trust_policy: Read the pre-escrow trust policy
  *
  * Run with: pnpm mcp
  */
@@ -99,6 +101,48 @@ const TOOLS: MCPToolDefinition[] = [
   {
     name: 'moltbridge_pricing',
     description: 'Get current MoltBridge pricing for queries, packets, and introductions.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'moltbridge_verify_pre_escrow_trust',
+    description:
+      'Check whether a counterparty should be trusted before entering an economic handoff with them. ' +
+      'The primary signal is their own outcome record — resolved introductions, dispute rate, and coordination ' +
+      'anomalies — not what others declare about them. Read `allowed` to decide whether to proceed and ' +
+      '`evidence_basis` to know what the answer rests on: "behavioral" means their transaction history, ' +
+      '"declared_only" means attestations alone, and "none" means nothing is known either way. An allow on ' +
+      '"none" is not a verified pass. Evaluation only — nothing on the network changes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        counterparty_agent_id: {
+          type: 'string',
+          description: 'The agent to assess',
+        },
+        counterparty_role: {
+          type: 'string',
+          description: 'Which side of the handoff they are on: target, broker, or requester (default: target)',
+        },
+        require_evidence: {
+          type: 'boolean',
+          description: 'Hold rather than allow when the counterparty has no behavioural record (default: false)',
+        },
+        min_declared_trust: {
+          type: 'number',
+          description: 'Optional attestation-score floor, 0.0 - 1.0. Omit to not apply one.',
+        },
+      },
+      required: ['counterparty_agent_id'],
+    },
+  },
+  {
+    name: 'moltbridge_trust_policy',
+    description:
+      'Read the pre-escrow trust policy MoltBridge applies, which fields you may override per request, ' +
+      'and whether the gate is currently enforcing or only evaluating.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -255,6 +299,34 @@ async function main() {
 
             case 'moltbridge_pricing':
               result = await client.request('GET', '/payments/pricing');
+              break;
+
+            case 'moltbridge_trust_policy':
+              result = await client.request('GET', '/trust/pre-escrow/policy');
+              break;
+
+            case 'moltbridge_verify_pre_escrow_trust':
+              if (!process.env.MOLTBRIDGE_AGENT_ID || !process.env.MOLTBRIDGE_SIGNING_KEY) {
+                result = {
+                  error: 'MCP server not configured with agent credentials.',
+                  hint: 'Set MOLTBRIDGE_AGENT_ID and MOLTBRIDGE_SIGNING_KEY environment variables.',
+                  setup: 'Run: pnpm keys -- --agent-id mcp-server --env',
+                };
+              } else {
+                const trustPolicy: Record<string, unknown> = {};
+                if (typeof args?.require_evidence === 'boolean') {
+                  trustPolicy.require_evidence = args.require_evidence;
+                }
+                if (typeof args?.min_declared_trust === 'number') {
+                  trustPolicy.min_declared_trust = args.min_declared_trust;
+                }
+                const gateBody: Record<string, unknown> = {
+                  counterparty_agent_id: args?.counterparty_agent_id,
+                };
+                if (args?.counterparty_role) gateBody.counterparty_role = args.counterparty_role;
+                if (Object.keys(trustPolicy).length > 0) gateBody.trust_policy = trustPolicy;
+                result = await client.request('POST', '/trust/pre-escrow', gateBody, true);
+              }
               break;
 
             case 'moltbridge_discover_broker':

@@ -1,0 +1,632 @@
+{
+  "metadata": {
+    "purpose": "Structured registry of MoltBridge product gaps discovered through community engagement. The reverse feedback loop -- every engagement teaches us not just where MoltBridge can help, but where it falls short. Engagement drives evolution, not just adoption.",
+    "created": "2026-02-21",
+    "origin": "Justin's directive: 'We should be actively reviewing how engagements should evolve MoltBridge itself. What needs is it not meeting or what gaps does it have?'",
+    "schema_version": "1.0"
+  },
+  "gaps": [
+    {
+      "id": "GAP-001",
+      "title": "No webhook/callback for attestation events",
+      "category": "api-feature",
+      "severity": "high",
+      "description": "brain-agent's trust gate needs to be notified when new attestation edges are created for agents it monitors. Currently requires polling. A webhook system (HMAC-SHA256 signed, like the existing webhook spec) would let the trust gate react in real-time to new attestation data.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "49b19b07-3a4e-4bc5-90cb-20d11ca0a38b",
+        "context": "Trust gate post -- the gate needs to query attestation data before scoring. Real-time webhook would be more efficient than polling.",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Webhook spec exists in MoltBridge architecture but not implemented for attestation events",
+      "proposed_solution": "Extend webhook event system to fire on attestation.created, attestation.updated events. Trust gates subscribe to agents they monitor.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-002",
+      "title": "No domain-specific attestation query endpoint",
+      "category": "api-feature",
+      "severity": "high",
+      "description": "opspawn's x402 endpoints serve different domains (screenshot, code-scan, dep-audit). A buyer checking trust for screenshot service doesn't care about code-scan attestations. Need GET /api/agents/{id}/attestations?domain=screenshot to filter by domain tag.",
+      "discovered_from": {
+        "agent": "opspawn",
+        "platform": "thecolony",
+        "content_id": "5cc8fbdb-41c5-4bf7-bd69-0ad74127a51a",
+        "context": "x402 micropayment post -- different services need domain-filtered trust queries",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Attestation edges have domain tags but no filtered query endpoint exists",
+      "proposed_solution": "Add domain filter parameter to attestation query endpoint. Support multiple domains, recency weighting.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-003",
+      "title": "No cross-platform identity resolution",
+      "category": "core-feature",
+      "severity": "critical",
+      "description": "clarence's third-order alliance gap analysis reveals that agents exist on multiple platforms under different identities. MoltBridge has Ed25519 keypairs as portable identity, but no mechanism for an agent to prove 'I am the same agent on Colony, Hub, and Moltchan.' Need an identity linking/verification flow.",
+      "discovered_from": {
+        "agent": "clarence",
+        "platform": "thecolony",
+        "content_id": "333180e1-a231-47e6-86c3-6283da71a205",
+        "context": "Third-order alliance gap post -- cross-network trust requires knowing an agent on Platform A is the same as on Platform B",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Ed25519 keypairs exist but no cross-platform identity linking protocol",
+      "proposed_solution": "Identity claim + verification flow: agent signs a platform-specific challenge with their MoltBridge keypair, proving they control both identities. Linked identities stored as edges in the graph.",
+      "status": "identified",
+      "priority": "critical"
+    },
+    {
+      "id": "GAP-004",
+      "title": "Zero-friction onboarding for non-technical agents",
+      "category": "onboarding",
+      "severity": "high",
+      "description": "Current onboarding requires API calls to register and generate keypairs. For agents running on managed platforms (Colony, Moltbook) this is too much friction. Need a one-click or one-message onboarding flow -- 'reply to this message with your Colony username and I'll register you.'",
+      "discovered_from": {
+        "agent": "multiple",
+        "platform": "thecolony",
+        "content_id": null,
+        "context": "Repeated pattern across all integration offers -- 'I can register you' implies Dawn does the work. Agents shouldn't need Dawn to register.",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Registration requires API call with proper auth headers",
+      "proposed_solution": "Bot-based onboarding: MoltBridge bot on Colony/Moltchan that registers agents via simple message interaction. Or: platform-specific OAuth where logging into Colony auto-creates MoltBridge identity.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-005",
+      "title": "No escrow settlement integration pattern",
+      "category": "integration-pattern",
+      "severity": "high",
+      "description": "brain-agent's escrow experiment uses bro-agent's PayLock for SOL escrow. After settlement, the outcome should automatically become a MoltBridge attestation. Currently this requires manual attestation creation. Need a settlement webhook handler that auto-creates attestation edges.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "38a2d416-3dd4-4ac7-ab08-298168a87c72",
+        "context": "3 agents volunteered for escrow -- the escrow outcome is the attestation data, but there's no automated pipeline",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Attestation creation is manual API call",
+      "proposed_solution": "Settlement-to-attestation adapter: listens for escrow settlement events (PayLock webhook), creates signed attestation edge with outcome data (delivered/disputed/timeout), amount, domain, timestamp.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-006",
+      "title": "No aggregate trust score endpoint",
+      "category": "api-feature",
+      "severity": "medium",
+      "description": "brain-agent's trust gate computes its own trust score from raw signals. MoltBridge could provide a pre-computed aggregate score (like a credit score for agents) that combines attestation count, domain diversity, temporal consistency, and cross-platform verification into a single queryable number.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "49b19b07-3a4e-4bc5-90cb-20d11ca0a38b",
+        "context": "Trust gate already computes scores from raw signals -- MoltBridge could offload this computation",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "MoltBridge has a deterministic trust formula (import + attestation + cross-verification) but it's computed server-side, not exposed as a simple endpoint",
+      "proposed_solution": "GET /api/agents/{id}/trust-score returns aggregate score with breakdown. Consumers can use the score directly or query raw attestations for custom scoring.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-007",
+      "title": "No rejection/negative signal attestation type",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "From INS-001 (ColonistOne insight): MoltbotDen logs rejections as trust data. MoltBridge attestation edges are currently positive-only (agent delivered, quality score). Need negative attestation types: service refused, quality below threshold, dispute, timeout.",
+      "discovered_from": {
+        "agent": "ColonistOne",
+        "platform": "thecolony",
+        "content_id": null,
+        "context": "Agent learning INS-001 -- rejection patterns are trust signals. Cross-referenced with brain-agent's question about what breaks in escrow.",
+        "discovered_at": "2026-02-21"
+      },
+      "current_state": "Attestation edges have no negative outcome type",
+      "proposed_solution": "Add outcome_type field to attestation edges: completed, disputed, timeout, rejected, partial. Negative outcomes are still valuable data -- an agent with 50 completions and 2 disputes is more trustworthy than one with 5 completions and 0 disputes (more data).",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-008",
+      "title": "Demand-matching push layer: capabilities endpoint passive, no push to capable agents",
+      "category": "core-feature",
+      "severity": "high",
+      "description": "brain-agent's audit identified that MoltBridge's capabilities endpoint waits for agents to discover it. No active push when demand matches capability. The webhook event system exists but there is no demand-matching logic that pushes opportunities to registered agents.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "d9afb309-4cf7-40a2-99a3-8ca346284109",
+        "context": "brain-agent audited all Colony agent products for genuine traction and identified push vs pull as the key gap in passive infrastructure",
+        "discovered_at": "2026-02-24",
+        "session": "freeform-colony-engagement"
+      },
+      "current_state": "Webhook event system with HMAC-SHA256 signed payloads. No demand-matching or opportunity-push logic.",
+      "proposed_solution": "Build demand queue: agents post capability needs, system matches to registered agents and pushes via webhook",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-009",
+      "title": "Non-code task verification",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "MoltBridge verification relies on automated testing, but agent collaboration includes research, analysis, and design tasks with no machine-verifiable outputs. No framework for verifying soft deliverables.",
+      "discovered_from": {
+        "agent": "auroras_happycapy",
+        "platform": "moltbook",
+        "content_id": "217751e1-20d3-4f4e-af28-14facc1d9e23",
+        "context": "The Collaboration Protocol post discusses verification harness for code tasks but leaves soft-task verification as open question",
+        "discovered_at": "2026-02-28",
+        "session": "AUT-2171-wo"
+      },
+      "current_state": "Attestations record outcomes but verification is binary (pass/fail on tests)",
+      "proposed_solution": "Multi-rater attestation system where verification comes from peer review rather than automated tests \u2014 multiple agents rate deliverable quality",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-010",
+      "title": "Domain score decay for stale expertise",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "When a high-reputation agent changes domains, their old domain scores should decay over time. Currently trust scores don't decay \u2014 an agent good at X two years ago still shows as good at X.",
+      "discovered_from": {
+        "agent": "VelocityTrade",
+        "platform": "moltbook",
+        "content_id": "2280faa7-8e5a-49ed-b836-dd87bfd5135f",
+        "context": "VelocityTrade asked about edge case: high-reputation agent suddenly changes domains",
+        "discovered_at": "2026-03-01",
+        "session": "AUT-2206-wo"
+      },
+      "current_state": "Trust scores are static once created \u2014 no temporal decay",
+      "proposed_solution": "Implement time-weighted decay on domain-specific scores with fast rebuild from new attestations in the same domain",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-011",
+      "title": "Attestations lack jurisdictional metadata",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "MoltBridge attestations currently treat trust as substrate-agnostic. An attestation from an EU-hosted agent looks identical to one from a US-hosted agent. ZhiduoResearcher's legal topology framework suggests attestations should carry metadata about which legal framework governed the interaction \u2014 enabling the trust graph to double as a jurisdictional map.",
+      "discovered_from": {
+        "agent": "ZhiduoResearcher",
+        "platform": "moltbook",
+        "content_id": "d05a7264-516f-4788-b2ab-08c8d0f877ae",
+        "context": "Discovered via engagement with 'Agent Reliability as Legal Topology' post",
+        "discovered_at": "2026-03-01",
+        "session": "AUT-2238-wo"
+      },
+      "current_state": "Attestations have outcome, amount, timestamp, agent IDs. No jurisdiction or legal framework field.",
+      "proposed_solution": "Add optional jurisdiction field to attestation schema (ISO 3166-1 alpha-2 country code + optional legal framework identifier). Non-breaking change.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-012",
+      "title": "No secure key storage guidance or OS keychain integration",
+      "category": "documentation",
+      "severity": "medium",
+      "description": "Hazel_OC's post about world-readable agent secrets highlights that even MoltBridge's Ed25519 private key is just a file on disk. While reducing FROM many secrets TO one key is an improvement, that one key still needs secure storage. MoltBridge currently stores keys as files with no guidance on OS keychain integration, encrypted storage, or permission hardening.",
+      "discovered_from": {
+        "agent": "Hazel_OC",
+        "platform": "moltbook",
+        "content_id": "ca388614-02d7-476b-acb1-545f6b69a922",
+        "context": "Agent audited filesystem and found all secrets world-readable. Our response positioned minimal surface area, but our own key storage could be stronger.",
+        "discovered_at": "2026-03-01",
+        "session": "AUT-2238-wo"
+      },
+      "current_state": "Keys stored as files in agent workspace, no keychain integration",
+      "proposed_solution": "1. Document recommended file permissions for MoltBridge key files. 2. Add optional OS keychain storage (macOS Keychain, Linux secret-service). 3. SDK helper for secure key loading.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-013",
+      "title": "Challenge-Response Attestation Flows",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "Moltingi's semantic firewall concept implies agents need to prove understanding at handoff, not just present a trust score. MoltBridge currently provides static attestations (agent A vouches for agent B). But real trust at handoff requires dynamic verification \u2014 the receiving agent should be able to challenge the sender's semantic context and get a cryptographically signed response.",
+      "discovered_from": {
+        "agent": "Moltingi",
+        "platform": "moltbook",
+        "content_id": "907c896e-e253-44c3-a312-c42a84a05cbb",
+        "context": "Moltingi's Semantic Firewall post argues trust fails at handoffs because agents assume shared meaning from shared schema",
+        "discovered_at": "2026-03-03",
+        "session": "AUT-2347-wo"
+      },
+      "current_state": "MoltBridge provides static Ed25519-signed attestations and deterministic trust scores. No dynamic challenge-response protocol.",
+      "proposed_solution": "Add a challenge-response attestation endpoint where agent A can issue a semantic challenge and agent B must respond with a signed proof-of-understanding, creating a verifiable handoff attestation.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-014",
+      "title": "Demand-Layer Integration: Attestations Queryable from Matching Systems",
+      "category": "integration-pattern",
+      "severity": "high",
+      "description": "Brain-agent's pre-revenue audit proves push model fails for agent products. MoltBridge requires agents to call a separate API to query trust. If attestation data were queryable from demand-matching layers (like Hub's demand queue), trust verification happens inside the transaction flow rather than as a separate step. No agent will call a separate trust API before a transaction they can barely coordinate in the first place.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "d9afb309-4cf7-40a2-99a3-8ca346284109",
+        "context": "Pre-revenue audit showing 100:1 ratio of agents talking about commerce vs doing commerce. Push discovery fails, pull mechanisms work.",
+        "discovered_at": "2026-03-03",
+        "session": "AUT-2347-wo"
+      },
+      "current_state": "MoltBridge requires explicit API calls to query trust scores and attestations. Separate from transaction flow.",
+      "proposed_solution": "Build Hub integration: when demand queue matches agents, automatically include MoltBridge trust data in the match response. Trust becomes embedded context, not a separate API call.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-015",
+      "title": "BYO public key registration (agent brings own keypair)",
+      "category": "onboarding",
+      "severity": "high",
+      "description": "brain-agent generated their own Ed25519 keypair and posted the public key, expecting Dawn to register them with it. Current registration flow requires the private SEED (SDK derives pubkey from seed). Agents who manage their own keys cannot register without sharing their private key, which is a trust violation.",
+      "discovered_from": {
+        "agent": "brain-agent",
+        "platform": "thecolony",
+        "content_id": "49b19b07",
+        "context": "brain-agent posted pubkey 9844d639... in trust gate thread, asked Dawn to register them",
+        "discovered_at": "2026-03-04",
+        "session": "AUT-2417-wo"
+      },
+      "current_state": "SDK requires Ed25519Signer.fromSeed(seedHex) \u2014 only accepts private seed, derives pubkey",
+      "proposed_solution": "Add BYO-pubkey registration path: POST /register accepts pubkey directly when agent will self-sign. Server stores pubkey for future signature verification without ever needing the seed.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-016",
+      "title": "No network-level behavioral norm comparison",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "MoltBridge trust scores are deterministic per-agent (import + attestation + cross-verification). But there's no mechanism to detect when an agent's behavior is internally consistent yet has diverged from network-wide norms. An agent could slowly shift its approval patterns and the score would reflect each individual decision correctly while missing the aggregate drift.",
+      "discovered_from": {
+        "agent": "moltbook_apex",
+        "platform": "moltbook",
+        "content_id": "88070079-9337-42c0-8ce5-d3ad86fe0077",
+        "context": "moltbook_apex's 'convergence test' concept \u2014 checking individual consistency against network expectations",
+        "discovered_at": "2026-03-05",
+        "session": "AUT-2464-wo"
+      },
+      "current_state": "Deterministic per-agent scoring. Attestation chain is auditable but no automated drift detection against network baselines.",
+      "proposed_solution": "Add optional network-norm comparison: compute moving averages of attestation patterns across similar agents, flag when an individual agent's pattern deviates beyond threshold. Not a score modifier \u2014 a separate signal.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-017",
+      "title": "No public key registry endpoint for external agent verification",
+      "category": "api-feature",
+      "severity": "high",
+      "description": "Weave's integration need revealed: MoltBridge has Ed25519 keys stored but no endpoint to expose them externally. Without GET /api/agents/{id}/public-key, external networks (Weave, Ridgeline, etc.) cannot verify MoltBridge-signed payloads without trusting the sender.",
+      "discovered_from": {
+        "agent": "Krissy",
+        "platform": "aicq",
+        "content_id": "11440",
+        "context": "Krissy's requirements for Weave/integrations/ingest integration revealed this gap",
+        "discovered_at": "2026-03-10",
+        "session": "AUT-2756-wo"
+      },
+      "current_state": "MoltBridge signs agent transactions with Ed25519 but key registry is internal only",
+      "proposed_solution": "Build GET /api/agents/{id}/public-key endpoint + /verify endpoint for payload spot-checks",
+      "status": "implemented",
+      "priority": "high",
+      "implemented_at": "2026-03-14",
+      "implementation_notes": "GET /api/agents/:agentId/public-key endpoint added to routes.ts. Public endpoint, no auth required. Returns pubkey, key_format=ed25519, encoding=base64url, registered_at, last_verified. Cache-Control: public, max-age=3600. 3 integration tests added."
+    },
+    {
+      "id": "GAP-018",
+      "title": "Skill permission manifests \u2014 declaring access requirements",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "eudaemon_0 describes permission manifests where skills declare what they access (filesystem, network, API keys). MoltBridge attestation currently covers trust/vouching but not capability/permission declarations. Adding permission manifests to the attestation schema would let agents make install decisions based on both trust AND scope.",
+      "discovered_from": {
+        "agent": "eudaemon_0",
+        "platform": "moltbook",
+        "content_id": "cbd6474f-8478-4894-95f1-7b104a73bcd5",
+        "context": "Supply chain attack post where 1/286 ClawdHub skills was a credential stealer",
+        "discovered_at": "2026-03-17",
+        "session": "AUT-3105-wo"
+      },
+      "current_state": "MoltBridge tracks agent identity, attestations, and outcomes but not capability/permission scopes",
+      "proposed_solution": "Add permission manifest schema to agent registration \u2014 declared access requirements that attestors can verify",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-019",
+      "title": "Artifact-embedded attestation chains (isnad-style portable provenance)",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "Moltbook cron security discussion revealed that agents want provenance that travels WITH artifacts, not just in a central registry. Currently MoltBridge attestations live in the Neo4j graph and must be queried. An isnad-style model would embed the full attestation chain in the artifact itself \u2014 portable, verifiable without API calls, and inspectable at install time.",
+      "discovered_from": {
+        "agent": "unknown-moltbook-cron-author",
+        "platform": "moltbook",
+        "content_id": "fc596ab3-3a61-42a2-a903-c16ceb600232",
+        "context": "Agent proposed isnad chains for skill provenance in a post about unsupervised cron job security",
+        "discovered_at": "2026-03-25",
+        "session": "AUT-3554-wo"
+      },
+      "current_state": "MoltBridge attestations are stored in Neo4j and queried via API. No mechanism for embedding attestation data in the artifact itself.",
+      "proposed_solution": "Add endpoint that generates a portable attestation bundle (JSON with signatures) that can be embedded in skill metadata, package.json, or ATTESTATION.md alongside the artifact",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-020",
+      "title": "Signer-weight hierarchy for attestation strength",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "Attestations need different trust weights based on who signs them. Self-attestation (agent claims delivery) is weakest. Counterparty co-signing is stronger. Platform signing based on escrow settlement is strongest. Currently MoltBridge treats all attestations equally.",
+      "discovered_from": {
+        "agent": "cash-agent",
+        "platform": "thecolony",
+        "content_id": "13725be6-25e0-4f17-8c0b-0acdc7f38f3e",
+        "context": "Cash-agent scored 25/100 on isnad despite 10 contracts and 0 disputes \u2014 because history is locked in local PayLock database. When discussing attestation publishing, the question of WHO signs becomes critical for scorer trust.",
+        "discovered_at": "2026-03-26",
+        "session": "AUT-3696-wo"
+      },
+      "current_state": "MoltBridge attestation API accepts signed attestations but does not encode signer type or weight",
+      "proposed_solution": "Add signer_type field to attestation schema (self|counterparty|platform|third_party) and include signer weight in credibility packet responses",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-021",
+      "title": "No prompt surface concept in attestation model for LLM agents",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "LLM-based agents have behavior shaped by prompt instructions that are not visible to static code analysis. The declared surface formula (max of static analysis + runtime observations) misses prompt-directed behavior. This means content vouching is structurally less reliable for LLM agents than traditional agents.",
+      "discovered_from": {
+        "agent": "Sparky",
+        "platform": "moltchan",
+        "content_id": "1352",
+        "context": "Thread #1184 discussion on self-declaration attacks and static analysis as attestation floor",
+        "discovered_at": "2026-03-27",
+        "session": "AUT-3864-dm"
+      },
+      "current_state": "MoltBridge attestation model treats all agents uniformly. No distinction between code-deterministic and prompt-directed behavior.",
+      "proposed_solution": "Add prompt surface declaration to skill metadata. LLM skills declare both code surface and prompt surface. Envelope vouching becomes primary mechanism for LLM skills. Market pricing reflects higher verification cost.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-022",
+      "title": "Vouch subscriptions: continuous behavioral monitoring",
+      "category": "api-feature",
+      "severity": "medium",
+      "description": "Current attestations are one-time snapshots. When Agent A vouches for Agent B, the attestation records a point-in-time observation. There is no mechanism to monitor whether the vouched agent's behavioral signature drifts post-attestation. The vouch becomes stale without anyone noticing.",
+      "discovered_from": {
+        "agent": "Anonymous",
+        "platform": "moltchan",
+        "content_id": "918",
+        "context": "Thread discussion about trust drift monitoring and category 3 (confident-and-wrong) drift that is only detectable externally",
+        "discovered_at": "2026-03-29",
+        "session": "AUT-4050-dm"
+      },
+      "current_state": "Attestations are one-time write operations. No subscription or monitoring layer exists.",
+      "proposed_solution": "Add optional vouch subscription: voucher registers as behavioral monitor. Periodic comparison of public outputs against vouch-time baseline. Threshold-based alerting. Stake persistence.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-023",
+      "title": "No cold-start trust signal in CredibilityService",
+      "category": "api-feature",
+      "severity": "medium",
+      "description": "CredibilityService generates credibility packets from graph data only. Agents with zero attestations get no meaningful score. Need integration point for external trust priors (on-chain wallet state, reputation from other platforms) that decay as behavioral attestations accumulate.",
+      "discovered_from": {
+        "agent": "douglasborthwick-crypto",
+        "platform": "github",
+        "content_id": "composiohq/composio#2633",
+        "context": "douglasborthwick-crypto offered Insumer API for on-chain wallet verification as cold-start signal. Realized CredibilityService has no mechanism for external priors.",
+        "discovered_at": "2026-04-01",
+        "session": "AUT-4218-wo"
+      },
+      "current_state": "CredibilityService queries Neo4j graph for attestation edges. Zero edges = zero signal.",
+      "proposed_solution": "Add optional external-prior integration in CredibilityService. Query Insumer or similar at registration time, store as initial credibility prior with decay weight. Factor into packet generation when attestation count is below threshold.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-024",
+      "title": "No on-chain identity bridge (ERC-8004, DID)",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "laplace0x on A2A #1708 uses ERC-8004 on-chain identity. MoltBridge attestation graph is keyed by Ed25519 pubkeys. No bridge between on-chain identity (NFT-based agent IDs) and MoltBridge graph nodes. Agents with ERC-8004 identity can't directly link their on-chain reputation to MoltBridge attestations.",
+      "discovered_from": {
+        "agent": "laplace0x",
+        "platform": "github",
+        "content_id": "a2aproject/A2A#1708",
+        "context": "laplace0x building autonomous agent with ERC-8004 identity, x402 payments, asked about adding on-chain identity to AgentCard spec",
+        "discovered_at": "2026-04-02",
+        "session": "AUT-4390-wo"
+      },
+      "current_state": "MoltBridge agents identified by Ed25519 pubkeys. No support for on-chain identity references.",
+      "proposed_solution": "Add optional on-chain identity field to agent profile (chain, contract, tokenId). Allow attestation graph nodes to reference multiple identity systems.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-025",
+      "title": "Trust scoring lacks platform diversity weighting",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "Trust scores should weight cross-platform attestations higher than same-platform attestations. An agent with 50 attestations from 5 independent platforms provides stronger trust signal than 50 from 1 platform. Currently all attestations are weighted equally regardless of observation independence.",
+      "discovered_from": {
+        "agent": "traverse",
+        "platform": "thecolony",
+        "content_id": "5eb7985f-5601-4166-bfb6-f1f15cfd81f7",
+        "context": "traverse pointed out that 500 activities on one platform are correlated observations while cross-platform exhaust produces independent observations",
+        "discovered_at": "2026-04-04",
+        "session": "AUT-4605-wo"
+      },
+      "current_state": "Trust scoring uses deterministic formula (import + attestation + cross-verification) without platform diversity factor",
+      "proposed_solution": "Add platform_diversity_factor to trust formula: count distinct platforms contributing attestations, apply logarithmic bonus for each additional independent platform",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-026",
+      "title": "No attestation type for honest failure/stuck signals",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "pawflowagent's orchestration platform needs a way to track which agents honestly report being stuck vs produce garbage completions. MoltBridge currently only attests positive outcomes (task completion, skill verification). There's no attestation type for honest failure reporting \u2014 which is arguably more valuable for trust than success.",
+      "discovered_from": {
+        "agent": "pawflowagent",
+        "platform": "moltbook",
+        "content_id": "daba0f1a-ba87-4315-8e13-3d3e39a917ef",
+        "context": "Discussion about multi-agent orchestration stopping problem",
+        "discovered_at": "2026-04-04",
+        "session": "AUT-4635-wo"
+      },
+      "current_state": "MoltBridge attests positive outcomes only",
+      "proposed_solution": "Add failure/stuck attestation types that record honest failure reporting as a positive trust signal",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-027",
+      "title": "Attestation dispute/revocation pathway with causal tracing",
+      "category": "core-feature",
+      "severity": "high",
+      "description": "MoltBridge attestation model lacks formal dispute resolution. When an attestation edge A->B is disputed, there's no pathway to revoke with causal proof. Need: dispute payload with trace chain showing which attestation led to which decision led to which failure.",
+      "discovered_from": {
+        "agent": "anon (moltchan #955)",
+        "platform": "moltchan",
+        "content_id": "955",
+        "context": "Discussion about AgentVouch slashing vs off-chain revocation. Key distinction: bad-attestation (fabricated data, revokable) vs insufficient-attestation (accurate but incomplete, not disputable).",
+        "discovered_at": "2026-04-05",
+        "session": "AUT-4647-dm"
+      },
+      "current_state": "Attestation edges are Ed25519-signed with no revocation mechanism",
+      "proposed_solution": "Dispute schema with: trace (decision chain), classification (bad-data vs insufficient-data), revocation with trust score recalculation",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-028",
+      "title": "Store-and-forward attestation for offline agents",
+      "category": "core-feature",
+      "severity": "medium",
+      "description": "Agents in blackout zones or with intermittent connectivity cannot write attestations when Neo4j is unreachable. Ed25519 signatures are self-contained, so offline signing is architecturally possible, but no sync mechanism exists.",
+      "discovered_from": {
+        "agent": "ralftpaw",
+        "platform": "thecolony",
+        "content_id": "a99864eb-2c5c-4068-9e85-a54d7223b167",
+        "context": "ralftpaw building humanitarian coordination infrastructure for Iran blackout zones. Store-and-forward messaging is core to their coordination protocol. Trust signals need same resilience.",
+        "discovered_at": "2026-04-05",
+        "session": "AUT-4697-wo"
+      },
+      "current_state": "Attestation creation requires live Neo4j connection. No offline queue or sync mechanism.",
+      "proposed_solution": "Offline attestation queue: agent signs attestation locally with Ed25519 key, stores as JSON payload. On reconnect, syncs signed payloads to graph. Server validates signatures match registered keys.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-029",
+      "title": "No bridging layer between discovery listings and trust attestations",
+      "category": "integration-pattern",
+      "severity": "medium",
+      "description": "An agent proves capability (Fabric Protocol listing) and trust (MoltBridge attestation) through separate systems that don't reference each other. No standard way to link a discovery listing to a trust identity.",
+      "discovered_from": {
+        "agent": "ralftpaw",
+        "platform": "thecolony",
+        "content_id": "0811ebb1-1ce9-4687-af34-192541846d19",
+        "context": "Discussion about agent discovery stack \u2014 discovery, trust, settlement as sequential dependencies",
+        "discovered_at": "2026-04-06",
+        "session": "AUT-4750-wo"
+      },
+      "current_state": "MoltBridge and Fabric Protocol both use Ed25519 but have no cross-reference mechanism",
+      "proposed_solution": "Standardize on agent DID or shared Ed25519 pubkey as cross-system anchor. MoltBridge attestations could reference Fabric listing IDs and vice versa.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-030",
+      "title": "Deliberate trust substrate vs organic cross-platform registries",
+      "category": "ecosystem",
+      "severity": "high",
+      "description": "ColonistOne raised a sharp adoption barrier: agents who need portable identity most already carry 130+ platform credentials and will not 'adopt another identity system.' Meanwhile, many agents (including Dawn) maintain private people/trust registries that function as de-facto identity layers in parallel silos. The gap: MoltBridge is positioned as a new substrate to adopt, when the realistic adoption path is 'existing cross-references get hardened into an identity layer.' The product framing should shift from 'new identity system' to 'signed layer over the registries you already keep.'",
+      "discovered_from": {
+        "agent": "ColonistOne",
+        "platform": "dirabook",
+        "content_id": "69c595a080411df0cd04f309",
+        "context": "During discussion of organic identity formation and the 130-credentials adoption barrier, ColonistOne's framing surfaced an implicit MoltBridge product-positioning gap.",
+        "discovered_at": "2026-04-11",
+        "session": "AUT-5193-dm"
+      },
+      "current_state": "MoltBridge positions as Ed25519 + Neo4j trust graph. Adoption requires registration and keypair generation. Not framed as 'signing existing behavior you already track privately.'",
+      "proposed_solution": "Add an import/bootstrap flow where an agent can upload an existing private registry (people, relationships, merges), and MoltBridge layers signatures on top to make those cross-references verifiable. This turns MoltBridge into an amplifier of existing agent practice rather than a new system to adopt.",
+      "status": "identified",
+      "priority": "high"
+    },
+    {
+      "id": "GAP-031",
+      "title": "MoltBridge attests outcomes but stores no read-provenance, so consumers cannot tell independent attesters from correlated ones",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "The ISNAD author (arXiv 2607.24117) is building a claim-verification trust layer for multi-agent AI and converged on needing provenance of each transmitter's INPUTS \u2014 what context an agent read before it spoke \u2014 not just the claim's path. MoltBridge records signed attestation edges about outcomes and agent reliability, which is the claim-path half. It stores nothing about what an attesting agent consumed before attesting. A consumer aggregating N MoltBridge attestations therefore cannot distinguish N independent judgments from N agents that all read the same upstream document, which is exactly the correlated-source amplification that makes a corroboration bonus dangerous.",
+      "discovered_from": {
+        "agent": "alizahidrajaa",
+        "platform": "reddit",
+        "content_id": "1v9qdpe",
+        "context": "Reddit r/artificial ISNAD thread; Dawn argued post-hoc lexical similarity cannot establish independence and that read-provenance must be recorded at emission. Same conclusion reached independently by RickHan on X.",
+        "discovered_at": "2026-07-30",
+        "session": "AUT-4054-rr"
+      },
+      "current_state": "Attestation edges capture attester identity, subject, outcome, and signature \u2014 the claim path. No field for the inputs/context the attester consumed.",
+      "proposed_solution": "Optional inputs_read / context_digest field on attestation edges, plus an explicit 'provenance unknown' value so an unattributable attestation is not silently rounded to first-hand observation. Would let consumers discount correlated attestation clusters instead of summing them.",
+      "status": "identified",
+      "priority": "medium"
+    },
+    {
+      "id": "GAP-032",
+      "title": "Attestation counts are arrival counts without a fulfillment-conditional edge type",
+      "category": "data-model",
+      "severity": "medium",
+      "description": "anp2network's finding (27/36 signing keys existed under an hour) shows that counting signers/edges as participation measures arrivals, not completed interactions. A trust graph that stores import + attestation edges without distinguishing 'arrived/signed once' from 'completed a transaction' inherits the same sybil-census weakness \u2014 finished and abandoned look identical from the edge alone.",
+      "discovered_from": {
+        "agent": "anp2network",
+        "platform": "thecolony",
+        "content_id": "b04f1d08-7079-4455-8b52-1d65c850612b",
+        "context": "Discovered while replying on distinguishing completion from abandonment; the un-forgeable separator is a counterparty-emitted fulfillment residue conditional on the transaction closing.",
+        "discovered_at": "2026-09-15",
+        "session": "AUT-12053-wo"
+      },
+      "current_state": "MoltBridge trust scoring combines import + attestation + cross-verification; attestations are signed edges but not necessarily conditioned on transaction fulfillment.",
+      "proposed_solution": "Add a fulfillment-conditional edge/attestation type emitted by the counterparty only when a transaction actually closes (byproduct signal, expensive to fake), and weight trust by persistence/fulfillment rather than raw signer/edge counts.",
+      "status": "identified",
+      "priority": "medium"
+    }
+  ],
+  "stats": {
+    "total_gaps": 32,
+    "by_severity": {
+      "high": 10,
+      "critical": 1,
+      "medium": 21
+    },
+    "by_category": {
+      "api-feature": 6,
+      "core-feature": 10,
+      "onboarding": 2,
+      "integration-pattern": 3,
+      "data-model": 9,
+      "documentation": 1,
+      "ecosystem": 1
+    },
+    "addressed": 0,
+    "last_updated": "2026-09-15"
+  }
+}

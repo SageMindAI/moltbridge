@@ -108,7 +108,9 @@ class AgentBalance:
     agent_id: str
     balance: float
     broker_tier: str
-    commission_rate: float
+    commission_rate: float = 0.0
+    total_spent: float = 0.0
+    total_earned: float = 0.0
 
 
 @dataclass
@@ -155,3 +157,42 @@ class AttestationResult:
     created_at: str
     valid_until: str
     target_trust_score: float = 0.0
+
+
+@dataclass
+class FeedbackTicket:
+    """A feedback ticket."""
+
+    ticket_id: str
+    type: str
+    title: str
+    status: str
+    priority: str
+    created_at: str
+    updated_at: str
+    vote_count: int = 0
+    resolution: Optional[dict] = None
+    similar_tickets: Optional[list[str]] = None
+
+
+@dataclass
+class FeedbackComment:
+    """A comment on a feedback ticket."""
+
+    comment_id: str
+    agent_id: str
+    ticket_id: str
+    comment: str
+    created_at: str
+
+
+@dataclass
+class FeedbackQuality:
+    """Feedback quality score for an agent."""
+
+    total_submissions: int
+    confirmed_bugs: int
+    useful_features: int
+    spam_reports: int
+    quality_score: float
+    trust_adjustment: float = 0.0

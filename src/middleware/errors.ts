@@ -4,6 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import type { ApiError } from '../types';
+import { getMetricsStore, getErrorTracker, type ErrorEntry } from '../services/metrics';
 
 export class MoltBridgeError extends Error {
   public code: string;
@@ -49,6 +50,21 @@ export function globalErrorHandler(
   _next: NextFunction
 ): void {
   if (err instanceof MoltBridgeError) {
+    // Categorize and track the error
+    const errorType = categorizeError(err);
+    const errorEntry: ErrorEntry = {
+      timestamp: new Date().toISOString(),
+      type: errorType,
+      code: err.code,
+      message: err.message,
+      path: _req.path,
+      method: _req.method,
+      agentId: (_req as any).auth?.agent_id,
+      ip: _req.ip,
+    };
+    getErrorTracker().record(errorEntry);
+    getMetricsStore().appendLog('errors', errorEntry);
+
     const errorBody: { error: ApiError } = {
       error: {
         code: err.code,
@@ -62,6 +78,19 @@ export function globalErrorHandler(
 
   // Unexpected error
   console.error('[MoltBridge] Unhandled error:', err);
+  const errorEntry: ErrorEntry = {
+    timestamp: new Date().toISOString(),
+    type: 'server_error',
+    code: 'INTERNAL_ERROR',
+    message: err.message,
+    path: _req.path,
+    method: _req.method,
+    agentId: (_req as any).auth?.agent_id,
+    ip: _req.ip,
+  };
+  getErrorTracker().record(errorEntry);
+  getMetricsStore().appendLog('errors', errorEntry);
+
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',
@@ -69,4 +98,14 @@ export function globalErrorHandler(
       status: 500,
     },
   });
+}
+
+function categorizeError(err: MoltBridgeError): ErrorEntry['type'] {
+  switch (err.status) {
+    case 401: return 'auth_failure';
+    case 429: return 'rate_limit';
+    case 400: return 'validation';
+    case 404: return 'not_found';
+    default: return err.status >= 500 ? 'server_error' : 'validation';
+  }
 }

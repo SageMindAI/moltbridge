@@ -32,6 +32,10 @@ tags:
     description: USDC micropayment ledger and broker commissions
   - name: Outcomes
     description: Bilateral outcome verification with timing analysis and anomaly detection
+  - name: Connection Goals
+    description: Network readiness scoring — track how close you are to reaching anyone
+  - name: Trust Gate
+    description: Pre-escrow trust verification — check a counterparty BEFORE the economic handoff
 
 security: []
 
@@ -326,6 +330,145 @@ paths:
   # Outcome Verification Endpoints
   # ========================
 
+  /trust/pre-escrow:
+    post:
+      tags: [Trust Gate]
+      summary: Verify a counterparty before the economic handoff
+      description: |
+        Evaluate whether a counterparty should be trusted enough to enter an
+        economic handoff with. Evaluation only — no side effects on the network.
+        The same gate enforces when the introduction is registered at
+        `POST /outcomes`.
+
+        **Behaviour over declaration.** The primary signal is the counterparty's
+        own outcome record: resolved introductions, dispute rate, and coordination
+        anomalies. The attestation-derived `trust_score` is a fallback used only
+        when no behavioural record exists.
+
+        **"Could not measure" is not "blocked".** `evidence_basis` states what the
+        decision rests on — `behavioral`, `declared_only`, or `none` — and a thin
+        record returns its own reason code rather than silently becoming a denial.
+        An allow on no evidence says so (`no_history_default_allow`); it is not a
+        verified pass.
+
+        Small records are judged on a Wilson 95% lower bound rather than a raw
+        success ratio, so one self-dealt introduction cannot read as certainty.
+      operationId: verifyPreEscrowTrust
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [counterparty_agent_id]
+              properties:
+                counterparty_agent_id:
+                  type: string
+                  description: The agent being assessed
+                counterparty_role:
+                  type: string
+                  enum: [target, broker, requester]
+                  default: target
+                  description: Which side of the handoff they are on. Recorded, not scored.
+                introduction_id:
+                  type: string
+                  description: Optional. Ties the assessment to a specific introduction.
+                trust_policy:
+                  $ref: '#/components/schemas/PreEscrowPolicy'
+                trust_override:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TrustOverride'
+      responses:
+        '200':
+          description: Assessment produced (including when the decision is blocking)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assessment:
+                    $ref: '#/components/schemas/PreEscrowAssessment'
+                  enforcing:
+                    type: boolean
+                  note:
+                    type: string
+        '400':
+          description: Invalid counterparty_agent_id, counterparty_role, trust_policy, or trust_override
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trust/pre-escrow/policy:
+    get:
+      tags: [Trust Gate, Public]
+      summary: The trust policy the gate applies
+      description: |
+        Publishes the default policy, the active base policy, and which fields a
+        caller may override per request. No authentication required so an agent
+        can decide whether to integrate before registering.
+      operationId: getPreEscrowPolicy
+      responses:
+        '200':
+          description: Policy published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  default_policy:
+                    $ref: '#/components/schemas/PreEscrowPolicy'
+                  active_policy:
+                    $ref: '#/components/schemas/PreEscrowPolicy'
+                  enforcing:
+                    type: boolean
+                    description: False means the gate evaluates and logs but does not refuse.
+                  overridable_per_request:
+                    type: array
+                    items:
+                      type: string
+
+  /trust/pre-escrow/stats:
+    get:
+      tags: [Trust Gate]
+      summary: Gate decision distribution
+      description: |
+        Decision counts, block rate, reason-code histogram, and the most recent
+        assessments.
+
+        A gate that has never produced a blocking decision is reporting a broken
+        input, not a healthy network — `interpretation` says so explicitly when
+        the block rate is zero, so the condition surfaces without reading the log
+        by hand.
+      operationId: getPreEscrowStats
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: Decision statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    $ref: '#/components/schemas/PreEscrowDecisionStats'
+                  enforcing:
+                    type: boolean
+                  recent:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PreEscrowAssessment'
+                  interpretation:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /outcomes:
     post:
       tags: [Outcomes]
@@ -356,21 +499,49 @@ paths:
                 target_id:
                   type: string
                   description: Agent ID of the target
+                trust_policy:
+                  allOf:
+                    - $ref: '#/components/schemas/PreEscrowPolicy'
+                  description: |
+                    Optional. Tighten the pre-escrow trust gate for this handoff only.
+                    Set `require_evidence: true` to refuse counterparties with no
+                    behavioural record, or `min_declared_trust` to require an
+                    attestation-derived score.
+                trust_override:
+                  type: array
+                  description: |
+                    Optional. Proceed despite a blocking gate decision. Each entry must
+                    name the counterparty it covers and state a reason of at least 8
+                    characters. The decision is NOT rewritten to 'allow' — the
+                    assessment keeps its blocking value and is marked `overridden`.
+                  items:
+                    $ref: '#/components/schemas/TrustOverride'
       responses:
         '201':
-          description: Outcome record created
+          description: |
+            Outcome record created. The response carries the gate's verdict under
+            `gate`, including when the verdict was an allow on no evidence.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OutcomeResponse'
         '400':
-          description: Validation error (missing fields)
+          description: Validation error (missing fields, or an invalid trust_policy/trust_override)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            Pre-escrow trust verification refused the handoff. No outcome record is
+            created. The body carries `gate` with the per-counterparty assessments
+            and the reason codes behind the decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustGateBlockedResponse'
         '409':
           description: Outcome already exists for this introduction
           content:
@@ -911,6 +1082,275 @@ paths:
               schema:
                 $ref: '#/components/schemas/PricingResponse'
 
+  /connection-goals:
+    post:
+      tags: [Authenticated, Connection Goals]
+      summary: Register a connection goal
+      description: |
+        Create a new connection goal to track network readiness for reaching a target person.
+        Returns the goal with an initial readiness score (0-100) across 5 dimensions.
+        Max 10 active goals per agent. Goals expire after 90 days.
+      operationId: createConnectionGoal
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_identifier]
+              properties:
+                target_identifier:
+                  type: string
+                  example: peter-diamandis
+                  description: Agent ID or human alias of the target
+                target_type:
+                  type: string
+                  enum: [human, agent]
+                  default: human
+                description:
+                  type: string
+                  maxLength: 500
+                  example: Introduction to Peter Diamandis for AI consciousness discussion
+                notify_threshold:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  example: 75
+                  description: Score threshold that triggers a webhook notification
+                max_hops:
+                  type: integer
+                  minimum: 1
+                  maximum: 6
+                  default: 4
+      responses:
+        '201':
+          description: Goal created with initial score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal_id:
+                    type: string
+                    example: cg-a1b2c3d4e5f6g7h8
+                  source_agent_id:
+                    type: string
+                  target_identifier:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  expires_at:
+                    type: string
+                    format: date-time
+                  initial_score:
+                    $ref: '#/components/schemas/ReadinessScore'
+                  notify_threshold:
+                    type: integer
+                    nullable: true
+                  stale:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Goal already exists for this target
+        '429':
+          description: Maximum goal limit (10) reached
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: List your connection goals
+      operationId: listConnectionGoals
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: List of goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        goal_id:
+                          type: string
+                        target_identifier:
+                          type: string
+                        current_score:
+                          type: number
+                        notify_threshold:
+                          type: integer
+                          nullable: true
+                        stale:
+                          type: boolean
+                        expires_at:
+                          type: string
+                          format: date-time
+                        last_scored_at:
+                          type: string
+                          format: date-time
+                        created_at:
+                          type: string
+                          format: date-time
+
+  /connection-goals/targeting-me:
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: See goals targeting you
+      description: GDPR transparency — see which agents have connection goals targeting you.
+      operationId: getGoalsTargetingMe
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: Goals targeting this agent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  targeting_goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        goal_id:
+                          type: string
+                        source_agent_id:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        expires_at:
+                          type: string
+                          format: date-time
+
+  /connection-goals/targeting-me/{id}:
+    delete:
+      tags: [Authenticated, Connection Goals]
+      summary: Request removal of a goal targeting you
+      description: GDPR right to erasure — remove a connection goal that targets you.
+      operationId: deleteGoalTargetingMe
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal removed
+        '400':
+          description: Goal not found or you are not the target
+
+  /connection-goals/{id}:
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: Get goal with cached score
+      description: Returns the full goal object with cached score and stale flag. Use /rescore for fresh computation.
+      operationId: getConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal:
+                    type: object
+                    properties:
+                      goal_id:
+                        type: string
+                      source_agent_id:
+                        type: string
+                      target_identifier:
+                        type: string
+                      target_type:
+                        type: string
+                      description:
+                        type: string
+                      current_score:
+                        type: number
+                      notify_threshold:
+                        type: integer
+                        nullable: true
+                      stale:
+                        type: boolean
+                      expires_at:
+                        type: string
+                        format: date-time
+                      last_scored_at:
+                        type: string
+                        format: date-time
+                      created_at:
+                        type: string
+                        format: date-time
+    delete:
+      tags: [Authenticated, Connection Goals]
+      summary: Delete a connection goal
+      operationId: deleteConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal deleted
+
+  /connection-goals/{id}/rescore:
+    post:
+      tags: [Authenticated, Connection Goals]
+      summary: Force fresh rescore
+      description: |
+        Triggers a fresh readiness score computation. Rate limited to 1 per goal per minute.
+        If scoring times out (5 second limit), returns partial results.
+        If the score crosses the notify_threshold, a webhook is emitted.
+      operationId: rescoreConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Fresh score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal_id:
+                    type: string
+                  score:
+                    $ref: '#/components/schemas/ReadinessScore'
+                  stale:
+                    type: boolean
+        '429':
+          description: Rescore cooldown (wait 1 minute)
+
 components:
   securitySchemes:
     ed25519Auth:
@@ -935,6 +1375,261 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    PreEscrowPolicy:
+      type: object
+      description: |
+        Thresholds the pre-escrow gate applies. Every field is optional on a
+        request; omitted fields keep the server default.
+      properties:
+        min_success_lower_bound:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.35
+          description: |
+            Minimum Wilson 95% lower bound on the counterparty's success ratio.
+            A lower bound rather than a raw ratio, so a 1-of-1 record cannot
+            present as certainty.
+        max_dispute_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.34
+          description: Maximum share of resolved introductions that ended disputed.
+        min_resolved_outcomes:
+          type: integer
+          minimum: 1
+          default: 3
+          description: |
+            Resolved introductions needed before a behavioural verdict is possible.
+            Below this the gate reports insufficient evidence instead of guessing.
+        min_declared_trust:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+          default: null
+          description: |
+            Optional attestation-score floor. When set and the score cannot be
+            resolved, the result is `review` with `declared_trust_unavailable` —
+            never `declared_trust_below_floor`.
+        require_evidence:
+          type: boolean
+          default: false
+          description: |
+            When true, a counterparty with no behavioural record is held for
+            review rather than allowed.
+        deny_on_collusion_patterns:
+          type: integer
+          minimum: 1
+          default: 2
+          description: Distinct blocking coordination flags that escalate review to deny.
+        collusion_rate_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          description: |
+            Share of a counterparty's outcomes a rate-based flag (instant_sync,
+            velocity_spike) must appear on before it blocks. Instantaneous
+            bilateral confirmation is normal for a well-built A2A integration, so
+            one occurrence stays advisory. Structural flags (ring_pattern,
+            requester_broker_same_ip) ignore this and block on first sight.
+
+    TrustOverride:
+      type: object
+      required: [counterparty_agent_id, reason]
+      description: |
+        Proceed despite a blocking decision. The decision itself is not rewritten
+        — the assessment keeps its blocking value and is marked `overridden`, so
+        the record stays dirty.
+      properties:
+        counterparty_agent_id:
+          type: string
+          description: The counterparty this override covers. An override for another agent does not unblock this one.
+        reason:
+          type: string
+          minLength: 8
+          description: Why the risk is accepted. An override with no stated reason is refused.
+        approved_by:
+          type: string
+          description: Defaults to the authenticated agent.
+
+    GateReason:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - self_dealing
+            - multiple_collusion_patterns
+            - collusion_pattern_detected
+            - success_rate_below_floor
+            - dispute_rate_above_ceiling
+            - declared_trust_below_floor
+            - declared_trust_unavailable
+            - evidence_required_but_absent
+            - behavioral_record_clean
+            - declared_trust_only
+            - no_history_default_allow
+            - advisory_pattern
+            - override_applied
+        detail:
+          type: string
+        blocking:
+          type: boolean
+
+    BehavioralRecord:
+      type: object
+      description: The counterparty's own outcome history — the gate's primary signal.
+      properties:
+        total:
+          type: integer
+        resolved:
+          type: integer
+          description: successful + failed + disputed
+        successful:
+          type: integer
+        failed:
+          type: integer
+        disputed:
+          type: integer
+        pending:
+          type: integer
+        success_rate_observed:
+          type: number
+          description: Raw ratio. Display only — policy does not read this.
+        success_lower_bound:
+          type: number
+          description: Wilson 95% lower bound. This is what policy reads.
+        dispute_rate:
+          type: number
+        outcomes_inspected:
+          type: integer
+          description: Denominator for the rate-based flags.
+        flag_counts:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Occurrences per anomaly flag, counted once per outcome.
+        strong_flags:
+          type: array
+          items:
+            type: string
+          description: Flags that reached blocking strength.
+        advisory_flags:
+          type: array
+          items:
+            type: string
+          description: Flags observed but not blocking, including rate flags below prevalence.
+
+    PreEscrowAssessment:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [allow, review, deny]
+          description: |
+            Keeps its blocking value even when an override let the handoff through.
+            Read `allowed` to know whether to proceed.
+        allowed:
+          type: boolean
+        overridden:
+          type: boolean
+        override:
+          allOf:
+            - $ref: '#/components/schemas/TrustOverride'
+          nullable: true
+        evidence_basis:
+          type: string
+          enum: [behavioral, declared_only, none]
+          description: What the decision rests on. Never inferred from the decision.
+        reasons:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/GateReason'
+          description: Always non-empty. Every decision states what produced it.
+        behavioral:
+          allOf:
+            - $ref: '#/components/schemas/BehavioralRecord'
+          nullable: true
+        declared_trust_score:
+          type: number
+          nullable: true
+          description: null means could not be resolved — not zero trust.
+        policy:
+          $ref: '#/components/schemas/PreEscrowPolicy'
+        requester_agent_id:
+          type: string
+        counterparty_agent_id:
+          type: string
+        counterparty_role:
+          type: string
+          enum: [target, broker, requester]
+        introduction_id:
+          type: string
+          nullable: true
+        evaluated_at:
+          type: string
+          format: date-time
+
+    PreEscrowDecisionStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        allow:
+          type: integer
+        review:
+          type: integer
+        deny:
+          type: integer
+        overridden:
+          type: integer
+        block_rate:
+          type: number
+        by_reason:
+          type: object
+          additionalProperties:
+            type: integer
+        by_evidence_basis:
+          type: object
+          properties:
+            behavioral:
+              type: integer
+            declared_only:
+              type: integer
+            none:
+              type: integer
+
+    TrustGateBlockedResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: TRUST_GATE_BLOCKED
+            message:
+              type: string
+            status:
+              type: integer
+              example: 403
+        gate:
+          type: object
+          properties:
+            decision:
+              type: string
+              enum: [allow, review, deny]
+            allowed:
+              type: boolean
+            assessments:
+              type: array
+              items:
+                $ref: '#/components/schemas/PreEscrowAssessment'
+
     HealthResponse:
       type: object
       properties:
@@ -1612,6 +2307,78 @@ components:
     # ========================
     # Common Schemas
     # ========================
+
+    ReadinessScore:
+      type: object
+      description: Multi-dimensional network readiness score (0-100)
+      properties:
+        total:
+          type: number
+          example: 35
+          description: Aggregate readiness score (0-100)
+        partial:
+          type: boolean
+          description: True if some dimensions timed out
+        dimensions:
+          type: object
+          properties:
+            path_exists:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+              description: "40 points if any path exists, 0 otherwise"
+            path_quality:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+            broker_quality:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+            cluster_overlap:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 15
+              description: "0-15 based on shared interest clusters"
+            redundancy:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+        gap_analysis:
+          type: object
+          description: Privacy-respecting analysis of what is missing
+          properties:
+            no_path:
+              type: boolean
+            target_cluster_domains:
+              type: array
+              items:
+                type: string
+            source_cluster_domains:
+              type: array
+              items:
+                type: string
+            bridge_available:
+              type: boolean
+            missing_link_type:
+              type: string
+            recommended_cluster_domains:
+              type: array
+              items:
+                type: string
+        scored_at:
+          type: string
+          format: date-time
 
     ErrorResponse:
       type: object

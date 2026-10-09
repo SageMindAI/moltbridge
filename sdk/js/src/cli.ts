@@ -12,17 +12,16 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { MoltBridge } from './client.js';
 import { Ed25519Signer } from './auth.js';
 
-const VERSION = '0.1.5';
 const BASE_URL = process.env.MOLTBRIDGE_BASE_URL || 'https://api.moltbridge.ai';
 const ENV_FILE = '.env.moltbridge';
 
-interface Credentials {
+interface SavedCredentials {
   agentId: string;
   signingKey: string;
   publicKey: string;
 }
 
-function loadCredentials(): Credentials | null {
+function loadCredentials(): SavedCredentials | null {
   // Check env vars first
   if (process.env.MOLTBRIDGE_AGENT_ID && process.env.MOLTBRIDGE_SIGNING_KEY) {
     return {
@@ -52,7 +51,7 @@ function loadCredentials(): Credentials | null {
   return null;
 }
 
-async function init(): Promise<void> {
+async function init() {
   console.log('MoltBridge Agent Setup\n');
 
   // Check if already initialized
@@ -64,9 +63,10 @@ async function init(): Promise<void> {
     return;
   }
 
-  // Get agent name from args or generate
+  // Get agent name from args or prompt
   const agentName = process.argv[3] || `agent-${Date.now().toString(36)}`;
   const capabilities = process.argv[4]?.split(',') || ['general'];
+
   const agentId = `mb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
   console.log(`Generating Ed25519 keypair...`);
@@ -86,9 +86,11 @@ async function init(): Promise<void> {
       baseUrl: BASE_URL,
     });
 
+    // Verify first
     await mb.verify();
     console.log('Verification: passed');
 
+    // Register — pass verificationToken as undefined to use the one from verify()
     await mb.register({
       agentId,
       name: agentName,
@@ -119,7 +121,7 @@ async function init(): Promise<void> {
   console.log('\nNext: npx moltbridge serve');
 }
 
-async function status(): Promise<void> {
+async function status() {
   const creds = loadCredentials();
   if (!creds) {
     console.log('Not initialized. Run: npx moltbridge init [agent-name]');
@@ -144,21 +146,17 @@ async function status(): Promise<void> {
   }
 }
 
-async function serve(): Promise<void> {
+async function serve() {
   const creds = loadCredentials();
   if (!creds) {
-    // Use stderr for non-JSON-RPC output in serve mode
-    process.stderr.write('Not initialized. Run: npx moltbridge init [agent-name]\n');
+    console.log('Not initialized. Run: npx moltbridge init [agent-name]');
     process.exit(1);
   }
 
-  // IMPORTANT: All informational output goes to stderr.
-  // MCP uses stdout exclusively for JSON-RPC protocol messages.
-  // Writing non-JSON to stdout breaks MCP clients.
-  process.stderr.write(`MoltBridge MCP Server\n`);
-  process.stderr.write(`Agent: ${creds.agentId}\n`);
-  process.stderr.write(`API: ${BASE_URL}\n`);
-  process.stderr.write(`\nMCP server starting on stdio...\n\n`);
+  console.log(`MoltBridge MCP Server`);
+  console.log(`Agent: ${creds.agentId}`);
+  console.log(`API: ${BASE_URL}`);
+  console.log(`\nMCP server starting on stdio...\n`);
 
   // MCP server over stdio (JSON-RPC)
   const mb = new MoltBridge({
@@ -172,7 +170,7 @@ async function serve(): Promise<void> {
       name: 'moltbridge_discover_broker',
       description: 'Find trusted broker agents who can introduce you to a target person or organization',
       inputSchema: {
-        type: 'object' as const,
+        type: 'object',
         properties: {
           target: { type: 'string', description: 'Name of person or org to reach' },
           context: { type: 'string', description: 'Why you want the introduction' },
@@ -184,7 +182,7 @@ async function serve(): Promise<void> {
       name: 'moltbridge_discover_capability',
       description: 'Find agents with specific capabilities',
       inputSchema: {
-        type: 'object' as const,
+        type: 'object',
         properties: {
           needs: { type: 'array', items: { type: 'string' }, description: 'Required capabilities' },
           cluster: { type: 'string', description: 'Optional cluster filter' },
@@ -196,7 +194,7 @@ async function serve(): Promise<void> {
       name: 'moltbridge_attest',
       description: 'Record a trust attestation about another agent after an interaction',
       inputSchema: {
-        type: 'object' as const,
+        type: 'object',
         properties: {
           subjectId: { type: 'string', description: 'Agent ID being attested' },
           rating: { type: 'number', description: 'Trust rating 0-1' },
@@ -209,7 +207,7 @@ async function serve(): Promise<void> {
       name: 'moltbridge_credibility',
       description: 'Get a credibility packet for an agent (trust score, attestations, verification status)',
       inputSchema: {
-        type: 'object' as const,
+        type: 'object',
         properties: {
           agentId: { type: 'string', description: 'Agent ID to check' },
         },
@@ -222,11 +220,11 @@ async function serve(): Promise<void> {
   const readline = await import('node:readline');
   const rl = readline.createInterface({ input: process.stdin });
 
-  const respond = (id: number | string, result: any) => {
+  const respond = (id: string | number, result: any) => {
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\n');
   };
 
-  const respondError = (id: number | string, code: number, message: string) => {
+  const respondError = (id: string | number, code: number, message: string) => {
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }) + '\n');
   };
 
@@ -239,7 +237,7 @@ async function serve(): Promise<void> {
         respond(id, {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'moltbridge', version: VERSION },
+          serverInfo: { name: 'moltbridge', version: '0.1.3' },
         });
       } else if (method === 'notifications/initialized') {
         // No response needed for notifications
@@ -251,7 +249,6 @@ async function serve(): Promise<void> {
 
         try {
           let result: any;
-
           if (toolName === 'moltbridge_discover_broker') {
             result = await mb.discoverBroker({ target: args.target });
           } else if (toolName === 'moltbridge_discover_capability') {
@@ -268,7 +265,6 @@ async function serve(): Promise<void> {
             respondError(id, -32601, `Unknown tool: ${toolName}`);
             return;
           }
-
           respond(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
         } catch (err: any) {
           respond(id, { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true });
@@ -296,7 +292,7 @@ switch (command) {
     status().catch(console.error);
     break;
   default:
-    console.log(`MoltBridge CLI v${VERSION}
+    console.log(`MoltBridge CLI v0.1.3
 
 Commands:
   npx moltbridge init [name]     Generate keypair, register agent, save credentials

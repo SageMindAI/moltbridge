@@ -95,7 +95,9 @@ export class Ed25519Signer {
     const bodyStr = body ? canonicalStringify(body) : '';
     const bodyHash = createHash('sha256').update(bodyStr).digest('hex');
 
-    const message = `${method}:${path}:${timestamp}:${bodyHash}`;
+    // Strip query string — server signs req.path (no query params)
+    const signPath = path.split('?')[0];
+    const message = `${method}:${signPath}:${timestamp}:${bodyHash}`;
     const msgBytes = new TextEncoder().encode(message);
     const signature = ed.sign(msgBytes, this._seed);
     const sigB64 = toBase64Url(signature);

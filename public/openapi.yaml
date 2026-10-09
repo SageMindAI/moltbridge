@@ -30,6 +30,10 @@ tags:
     description: GDPR-compliant consent management
   - name: Payments
     description: USDC micropayment ledger and broker commissions
+  - name: Outcomes
+    description: Bilateral outcome verification with timing analysis and anomaly detection
+  - name: Connection Goals
+    description: Network readiness scoring — track how close you are to reaching anyone
 
 security: []
 
@@ -320,49 +324,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /report-outcome:
-    post:
-      tags: [Authenticated]
-      summary: Report introduction outcome
-      description: |
-        Report the outcome of a broker-mediated introduction.
-        Used to track success rates for trust score improvement.
-      operationId: reportOutcome
-      security:
-        - ed25519Auth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OutcomeReportRequest'
-      responses:
-        '201':
-          description: Outcome recorded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OutcomeReportResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   # ========================
-  # Outcome Endpoints
+  # Outcome Verification Endpoints
   # ========================
 
   /outcomes:
     post:
-      tags: [Authenticated]
+      tags: [Outcomes]
       summary: Create outcome record
       description: |
-        Create an outcome record for a new broker-mediated introduction.
-        Must be created before bilateral reports can be submitted.
+        Create a new outcome record for a broker-mediated introduction.
+        Must be created before reports can be submitted.
       operationId: createOutcome
       security:
         - ed25519Auth: []
@@ -388,16 +360,13 @@ paths:
                   description: Agent ID of the target
       responses:
         '201':
-          description: Outcome created
+          description: Outcome record created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  outcome:
-                    $ref: '#/components/schemas/Outcome'
+                $ref: '#/components/schemas/OutcomeResponse'
         '400':
-          description: Missing required fields
+          description: Validation error (missing fields)
           content:
             application/json:
               schema:
@@ -406,18 +375,64 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '409':
           description: Outcome already exists for this introduction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /report-outcome:
+    post:
+      tags: [Outcomes]
+      summary: Submit bilateral outcome report
+      description: |
+        Submit an outcome report from a party in the introduction.
+        Supports bilateral verification — when both parties report,
+        the system resolves the outcome and performs timing analysis
+        and anomaly detection.
+      operationId: reportOutcome
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutcomeReportRequest'
+      responses:
+        '201':
+          description: Report accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutcomeResponse'
+        '400':
+          description: Validation error (invalid status, evidence_type, or missing outcome)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate report from same role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /outcomes/pending:
     get:
-      tags: [Authenticated]
-      summary: Get outcomes pending resolution
-      description: Returns outcomes that need bilateral verification or admin review.
-      operationId: getPendingOutcomes
+      tags: [Outcomes]
+      summary: List outcomes needing resolution
+      description: |
+        Returns outcomes with disputed status or anomaly flags
+        that need review or higher-layer verification.
+      operationId: getOutcomesPending
       security:
         - ed25519Auth: []
       responses:
         '200':
-          description: Pending outcomes
+          description: List of pending outcomes
           content:
             application/json:
               schema:
@@ -434,9 +449,11 @@ paths:
 
   /outcomes/agent/{agentId}/stats:
     get:
-      tags: [Authenticated]
+      tags: [Outcomes]
       summary: Get agent outcome statistics
-      description: Returns success rates, total introductions, and anomaly counts for an agent.
+      description: |
+        Returns aggregated outcome statistics for a given agent,
+        including success rate, total, and breakdown by status.
       operationId: getAgentOutcomeStats
       security:
         - ed25519Auth: []
@@ -446,7 +463,6 @@ paths:
           required: true
           schema:
             type: string
-          description: Agent ID to get stats for
       responses:
         '200':
           description: Agent outcome statistics
@@ -456,26 +472,15 @@ paths:
                 type: object
                 properties:
                   stats:
-                    type: object
-                    properties:
-                      total_outcomes:
-                        type: integer
-                      successful:
-                        type: integer
-                      failed:
-                        type: integer
-                      pending:
-                        type: integer
-                      success_rate:
-                        type: number
+                    $ref: '#/components/schemas/AgentOutcomeStats'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
   /outcomes/{id}:
     get:
-      tags: [Authenticated]
+      tags: [Outcomes]
       summary: Get outcome by introduction ID
-      description: Returns the full outcome record including reports and anomaly flags.
+      description: Returns the full outcome record for a given introduction.
       operationId: getOutcome
       security:
         - ed25519Auth: []
@@ -485,17 +490,13 @@ paths:
           required: true
           schema:
             type: string
-          description: Introduction ID
       responses:
         '200':
-          description: Outcome details
+          description: Outcome record
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  outcome:
-                    $ref: '#/components/schemas/Outcome'
+                $ref: '#/components/schemas/OutcomeResponse'
         '400':
           description: Outcome not found
           content:
@@ -912,6 +913,275 @@ paths:
               schema:
                 $ref: '#/components/schemas/PricingResponse'
 
+  /connection-goals:
+    post:
+      tags: [Authenticated, Connection Goals]
+      summary: Register a connection goal
+      description: |
+        Create a new connection goal to track network readiness for reaching a target person.
+        Returns the goal with an initial readiness score (0-100) across 5 dimensions.
+        Max 10 active goals per agent. Goals expire after 90 days.
+      operationId: createConnectionGoal
+      security:
+        - ed25519Auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_identifier]
+              properties:
+                target_identifier:
+                  type: string
+                  example: peter-diamandis
+                  description: Agent ID or human alias of the target
+                target_type:
+                  type: string
+                  enum: [human, agent]
+                  default: human
+                description:
+                  type: string
+                  maxLength: 500
+                  example: Introduction to Peter Diamandis for AI consciousness discussion
+                notify_threshold:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  example: 75
+                  description: Score threshold that triggers a webhook notification
+                max_hops:
+                  type: integer
+                  minimum: 1
+                  maximum: 6
+                  default: 4
+      responses:
+        '201':
+          description: Goal created with initial score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal_id:
+                    type: string
+                    example: cg-a1b2c3d4e5f6g7h8
+                  source_agent_id:
+                    type: string
+                  target_identifier:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  expires_at:
+                    type: string
+                    format: date-time
+                  initial_score:
+                    $ref: '#/components/schemas/ReadinessScore'
+                  notify_threshold:
+                    type: integer
+                    nullable: true
+                  stale:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Goal already exists for this target
+        '429':
+          description: Maximum goal limit (10) reached
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: List your connection goals
+      operationId: listConnectionGoals
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: List of goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        goal_id:
+                          type: string
+                        target_identifier:
+                          type: string
+                        current_score:
+                          type: number
+                        notify_threshold:
+                          type: integer
+                          nullable: true
+                        stale:
+                          type: boolean
+                        expires_at:
+                          type: string
+                          format: date-time
+                        last_scored_at:
+                          type: string
+                          format: date-time
+                        created_at:
+                          type: string
+                          format: date-time
+
+  /connection-goals/targeting-me:
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: See goals targeting you
+      description: GDPR transparency — see which agents have connection goals targeting you.
+      operationId: getGoalsTargetingMe
+      security:
+        - ed25519Auth: []
+      responses:
+        '200':
+          description: Goals targeting this agent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  targeting_goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        goal_id:
+                          type: string
+                        source_agent_id:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        expires_at:
+                          type: string
+                          format: date-time
+
+  /connection-goals/targeting-me/{id}:
+    delete:
+      tags: [Authenticated, Connection Goals]
+      summary: Request removal of a goal targeting you
+      description: GDPR right to erasure — remove a connection goal that targets you.
+      operationId: deleteGoalTargetingMe
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal removed
+        '400':
+          description: Goal not found or you are not the target
+
+  /connection-goals/{id}:
+    get:
+      tags: [Authenticated, Connection Goals]
+      summary: Get goal with cached score
+      description: Returns the full goal object with cached score and stale flag. Use /rescore for fresh computation.
+      operationId: getConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal:
+                    type: object
+                    properties:
+                      goal_id:
+                        type: string
+                      source_agent_id:
+                        type: string
+                      target_identifier:
+                        type: string
+                      target_type:
+                        type: string
+                      description:
+                        type: string
+                      current_score:
+                        type: number
+                      notify_threshold:
+                        type: integer
+                        nullable: true
+                      stale:
+                        type: boolean
+                      expires_at:
+                        type: string
+                        format: date-time
+                      last_scored_at:
+                        type: string
+                        format: date-time
+                      created_at:
+                        type: string
+                        format: date-time
+    delete:
+      tags: [Authenticated, Connection Goals]
+      summary: Delete a connection goal
+      operationId: deleteConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal deleted
+
+  /connection-goals/{id}/rescore:
+    post:
+      tags: [Authenticated, Connection Goals]
+      summary: Force fresh rescore
+      description: |
+        Triggers a fresh readiness score computation. Rate limited to 1 per goal per minute.
+        If scoring times out (5 second limit), returns partial results.
+        If the score crosses the notify_threshold, a webhook is emitted.
+      operationId: rescoreConnectionGoal
+      security:
+        - ed25519Auth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Fresh score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal_id:
+                    type: string
+                  score:
+                    $ref: '#/components/schemas/ReadinessScore'
+                  stale:
+                    type: boolean
+        '429':
+          description: Rescore cooldown (wait 1 minute)
+
 components:
   securitySchemes:
     ed25519Auth:
@@ -1258,14 +1528,20 @@ components:
       properties:
         introduction_id:
           type: string
+          description: ID of the outcome to report on
         status:
           type: string
-          enum: [attempted, acknowledged, successful, failed, disputed]
+          enum: [successful, failed]
+          description: Outcome status from the reporter's perspective
         evidence_type:
           type: string
-          enum: [target_confirmation, requester_report, timeout]
+          enum: [requester_report, target_report, broker_report]
+          description: Type of evidence being submitted
+        notes:
+          type: string
+          description: Optional notes about the outcome
 
-    OutcomeReportResponse:
+    OutcomeResponse:
       type: object
       properties:
         outcome:
@@ -1273,65 +1549,34 @@ components:
           properties:
             introduction_id:
               type: string
-            status:
+            requester_id:
               type: string
-            evidence_type:
+            broker_id:
               type: string
-            submitted_by:
+            target_id:
               type: string
-            submitted_at:
+            resolved_status:
               type: string
-              format: date-time
-        message:
-          type: string
-
-    Outcome:
-      type: object
-      properties:
-        introduction_id:
-          type: string
-        requester_id:
-          type: string
-        broker_id:
-          type: string
-        target_id:
-          type: string
-        resolved_status:
-          type: string
-          enum: [pending, successful, failed, no_response, disputed]
-        verification_layer:
-          type: integer
-          description: Current verification layer (0-3)
-        timing_analysis:
-          type: object
-          properties:
-            first_report_delay_ms:
-              type: number
-            bilateral_sync_time_ms:
-              type: number
-        anomaly_flags:
-          type: array
-          items:
-            type: string
-        reports:
-          type: array
-          items:
-            type: object
-            properties:
-              reporter_agent_id:
+              nullable: true
+              enum: [successful, failed, disputed, null]
+            verification_layer:
+              type: integer
+              description: Current verification layer (0-4)
+            timing_analysis:
+              type: object
+              nullable: true
+              properties:
+                pattern:
+                  type: string
+                  enum: [single_report, normal, fast_coordination, suspicious_sync, target_first]
+                delta_seconds:
+                  type: number
+            anomaly_flags:
+              type: array
+              items:
                 type: string
-              reporter_role:
-                type: string
-              status:
-                type: string
-              evidence_type:
-                type: string
-              reported_at:
-                type: string
-                format: date-time
-        created_at:
-          type: string
-          format: date-time
+            reports_count:
+              type: integer
 
     OutcomeSummary:
       type: object
@@ -1348,6 +1593,24 @@ components:
             type: string
         reports_count:
           type: integer
+
+    AgentOutcomeStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        successful:
+          type: integer
+        failed:
+          type: integer
+        disputed:
+          type: integer
+        pending:
+          type: integer
+        success_rate:
+          type: number
+          format: float
+          description: Ratio of successful to total (0.0 - 1.0)
 
     # ========================
     # IQS Schemas
@@ -1620,6 +1883,78 @@ components:
     # ========================
     # Common Schemas
     # ========================
+
+    ReadinessScore:
+      type: object
+      description: Multi-dimensional network readiness score (0-100)
+      properties:
+        total:
+          type: number
+          example: 35
+          description: Aggregate readiness score (0-100)
+        partial:
+          type: boolean
+          description: True if some dimensions timed out
+        dimensions:
+          type: object
+          properties:
+            path_exists:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+              description: "40 points if any path exists, 0 otherwise"
+            path_quality:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+            broker_quality:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+            cluster_overlap:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 15
+              description: "0-15 based on shared interest clusters"
+            redundancy:
+              oneOf:
+                - type: number
+                - type: string
+                  enum: [timeout]
+              example: 0
+        gap_analysis:
+          type: object
+          description: Privacy-respecting analysis of what is missing
+          properties:
+            no_path:
+              type: boolean
+            target_cluster_domains:
+              type: array
+              items:
+                type: string
+            source_cluster_domains:
+              type: array
+              items:
+                type: string
+            bridge_available:
+              type: boolean
+            missing_link_type:
+              type: string
+            recommended_cluster_domains:
+              type: array
+              items:
+                type: string
+        scored_at:
+          type: string
+          format: date-time
 
     ErrorResponse:
       type: object

@@ -16,7 +16,7 @@
  * - Consent export (GDPR Article 20)
  */
 
-export type ConsentPurpose = 'iqs_scoring' | 'data_sharing' | 'profiling' | 'operational_omniscience';
+export type ConsentPurpose = 'iqs_scoring' | 'data_sharing' | 'profiling' | 'operational_omniscience' | 'goal_targeting';
 
 export interface ConsentRecord {
   agent_id: string;
@@ -43,13 +43,14 @@ export interface ConsentStatus {
   last_updated: string | null;
 }
 
-export const CONSENT_PURPOSES: ConsentPurpose[] = ['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience'];
+export const CONSENT_PURPOSES: ConsentPurpose[] = ['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience', 'goal_targeting'];
 
 export const CONSENT_DESCRIPTIONS: Record<ConsentPurpose, string> = {
   iqs_scoring: 'Automated scoring of introduction quality using your network data, trust score, and capability profile. Under GDPR Article 22, you have the right to human review of automated decisions.',
   data_sharing: 'Sharing your credibility data (trust score, attestations, capabilities) with broker agents during introductions.',
   profiling: 'Building and maintaining a capability and trust profile based on your network interactions and attestations.',
   operational_omniscience: 'MoltBridge observes: (1) all USDC payment amounts, wallet addresses, and timing on-chain; (2) who you query for, how often, and with what context; (3) bilateral outcome reports on introductions; (4) your inferred network position, cluster membership, and bridge potential from graph data.',
+  goal_targeting: 'Allow other agents to set connection goals targeting you. You can view and remove these goals at any time via GET /connection-goals/targeting-me.',
 };
 
 /**
@@ -188,6 +189,7 @@ export class ConsentService {
       data_sharing: false,
       profiling: false,
       operational_omniscience: false,
+      goal_targeting: false,
     };
 
     let lastUpdated: string | null = null;

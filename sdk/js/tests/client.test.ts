@@ -484,3 +484,151 @@ describe('MoltBridge Client', () => {
     });
   });
 });
+
+describe('Pre-escrow trust gate (PROP-881)', () => {
+  let mb: MoltBridge;
+
+  beforeEach(() => {
+    mb = new MoltBridge({
+      baseUrl: 'http://localhost:3040',
+      agentId: 'test-agent-001',
+      signingKey: 'aa'.repeat(32),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('verifyPreEscrowTrust posts the counterparty and returns the assessment', async () => {
+    const fetchMock = mockFetch(200, {
+      assessment: {
+        decision: 'allow',
+        allowed: true,
+        evidence_basis: 'none',
+        reasons: [{ code: 'no_history_default_allow', detail: 'nothing known', blocking: false }],
+      },
+      enforcing: true,
+      note: 'Evaluation only.',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await mb.verifyPreEscrowTrust({ counterpartyAgentId: 'other-agent' });
+
+    expect(res.assessment.decision).toBe('allow');
+    expect(res.assessment.evidence_basis).toBe('none');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://localhost:3040/trust/pre-escrow');
+    expect(JSON.parse(init.body)).toEqual({ counterparty_agent_id: 'other-agent' });
+  });
+
+  it('maps the camelCase options onto the wire fields', async () => {
+    const fetchMock = mockFetch(200, { assessment: {}, enforcing: true, note: '' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await mb.verifyPreEscrowTrust({
+      counterpartyAgentId: 'other-agent',
+      counterpartyRole: 'broker',
+      introductionId: 'intro-7',
+      policy: { require_evidence: true, min_declared_trust: 0.5 },
+      override: { counterparty_agent_id: 'other-agent', reason: 'accepted the risk knowingly' },
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({
+      counterparty_agent_id: 'other-agent',
+      counterparty_role: 'broker',
+      introduction_id: 'intro-7',
+      trust_policy: { require_evidence: true, min_declared_trust: 0.5 },
+      trust_override: { counterparty_agent_id: 'other-agent', reason: 'accepted the risk knowingly' },
+    });
+  });
+
+  it('omits optional fields it was not given', async () => {
+    const fetchMock = mockFetch(200, { assessment: {}, enforcing: true, note: '' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await mb.verifyPreEscrowTrust({ counterpartyAgentId: 'other-agent' });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect('trust_policy' in body).toBe(false);
+    expect('trust_override' in body).toBe(false);
+    expect('counterparty_role' in body).toBe(false);
+  });
+
+  it('preEscrowPolicy reads the policy without auth', async () => {
+    const fetchMock = mockFetch(200, {
+      default_policy: { min_resolved_outcomes: 3 },
+      active_policy: { min_resolved_outcomes: 3 },
+      enforcing: true,
+      overridable_per_request: ['require_evidence'],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await mb.preEscrowPolicy();
+
+    expect(res.enforcing).toBe(true);
+    expect(res.default_policy.min_resolved_outcomes).toBe(3);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://localhost:3040/trust/pre-escrow/policy');
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it('createIntroduction carries the gate verdict on success', async () => {
+    const fetchMock = mockFetch(201, {
+      outcome: { introduction_id: 'intro-1' },
+      gate: { decision: 'allow', allowed: true, assessments: [] },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await mb.createIntroduction({
+      introductionId: 'intro-1',
+      requesterId: 'test-agent-001',
+      brokerId: 'broker-1',
+      targetId: 'target-1',
+    });
+
+    expect(res.gate.decision).toBe('allow');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      introduction_id: 'intro-1',
+      requester_id: 'test-agent-001',
+      broker_id: 'broker-1',
+      target_id: 'target-1',
+    });
+  });
+
+  it('createIntroduction raises when the gate refuses the handoff', async () => {
+    const fetchMock = mockFetch(403, {
+      error: { code: 'TRUST_GATE_BLOCKED', message: "returned 'deny' for target 'bad-agent'", status: 403 },
+      gate: { decision: 'deny', allowed: false, assessments: [] },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      mb.createIntroduction({
+        introductionId: 'intro-2',
+        requesterId: 'test-agent-001',
+        brokerId: 'broker-1',
+        targetId: 'bad-agent',
+      }),
+    ).rejects.toThrow(MoltBridgeError);
+  });
+
+  it('passes a per-handoff policy and override through to the wire', async () => {
+    const fetchMock = mockFetch(201, { outcome: {}, gate: { decision: 'deny', allowed: true, assessments: [] } });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await mb.createIntroduction({
+      introductionId: 'intro-3',
+      requesterId: 'test-agent-001',
+      brokerId: 'broker-1',
+      targetId: 'bad-agent',
+      policy: { require_evidence: true },
+      override: [{ counterparty_agent_id: 'bad-agent', reason: 'prior off-network relationship' }],
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.trust_policy).toEqual({ require_evidence: true });
+    expect(body.trust_override).toHaveLength(1);
+  });
+});

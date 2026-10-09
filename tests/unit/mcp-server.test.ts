@@ -9,6 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Since the MCP server is structured as a main() function with stdio,
 // we test the protocol constants and tool definitions by importing them
@@ -23,15 +25,45 @@ describe('MCP Server Protocol', () => {
       'moltbridge_discover_capability',
       'moltbridge_health',
       'moltbridge_pricing',
+      'moltbridge_verify_pre_escrow_trust',
+      'moltbridge_trust_policy',
     ];
 
     it('defines the correct tool names', () => {
       // These are the tools the MCP server should expose
-      expect(EXPECTED_TOOLS).toHaveLength(4);
+      expect(EXPECTED_TOOLS).toHaveLength(6);
       expect(EXPECTED_TOOLS).toContain('moltbridge_discover_broker');
       expect(EXPECTED_TOOLS).toContain('moltbridge_discover_capability');
       expect(EXPECTED_TOOLS).toContain('moltbridge_health');
       expect(EXPECTED_TOOLS).toContain('moltbridge_pricing');
+      expect(EXPECTED_TOOLS).toContain('moltbridge_verify_pre_escrow_trust');
+      expect(EXPECTED_TOOLS).toContain('moltbridge_trust_policy');
+    });
+
+    // The list above is a fixture, so on its own it only tests itself. The
+    // server cannot be imported (main() runs at module load and takes over
+    // stdio), so this reads the source instead and holds the fixture against
+    // the real TOOLS array and the real dispatch switch.
+    it('every expected tool is actually defined AND dispatched in the server', () => {
+      const source = readFileSync(
+        join(__dirname, '..', '..', 'src', 'mcp', 'server.ts'),
+        'utf-8',
+      );
+
+      const definitionBlock = source.slice(
+        source.indexOf('const TOOLS: MCPToolDefinition[]'),
+        source.indexOf("case 'tools/list'"),
+      );
+      const dispatchBlock = source.slice(source.indexOf("case 'tools/call'"));
+
+      for (const tool of EXPECTED_TOOLS) {
+        expect(definitionBlock, `${tool} missing from TOOLS`).toContain(`name: '${tool}'`);
+        expect(dispatchBlock, `${tool} has no dispatch case`).toContain(`case '${tool}'`);
+      }
+
+      // And nothing is defined that is not in the expected list.
+      const declared = [...definitionBlock.matchAll(/name: '(moltbridge_[a-z_]+)'/g)].map(m => m[1]);
+      expect(declared.sort()).toEqual([...EXPECTED_TOOLS].sort());
     });
   });
 

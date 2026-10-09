@@ -299,3 +299,93 @@ export interface ProfileEnrichmentRequest {
   can_offer?: string[];
   replace?: boolean;
 }
+
+// ========================
+// Feedback Types
+// ========================
+
+export type FeedbackType = 'bug' | 'feature_request' | 'api_issue' | 'data_quality' | 'security' | 'praise';
+export type FeedbackStatus = 'open' | 'acknowledged' | 'investigating' | 'fixed' | 'wontfix' | 'duplicate';
+export type FeedbackPriority = 'critical' | 'high' | 'medium' | 'low' | 'informational';
+
+// ========================
+// Connection Goal Types
+// ========================
+
+export interface ConnectionGoal {
+  id: string;
+  source_agent_id: string;
+  target_identifier: string;
+  target_type: 'human' | 'agent';
+  description: string;
+  notify_threshold: number | null;
+  max_hops: number;
+  current_score: number;
+  stale: boolean;
+  last_scored_at: string;
+  created_at: string;
+  expires_at: string;
+  notified: boolean;
+}
+
+export interface ScoreDimensions {
+  path_exists: number | 'timeout';
+  path_quality: number | 'timeout';
+  broker_quality: number | 'timeout';
+  cluster_overlap: number | 'timeout';
+  redundancy: number | 'timeout';
+}
+
+export interface GapAnalysis {
+  no_path: boolean;
+  target_cluster_domains: string[];
+  source_cluster_domains: string[];
+  bridge_available: boolean;
+  missing_link_type: string;
+  recommended_cluster_domains: string[];
+}
+
+export interface ReadinessScore {
+  total: number;
+  partial: boolean;
+  dimensions: ScoreDimensions;
+  gap_analysis: GapAnalysis;
+  scored_at: string;
+}
+
+export interface ConnectionGoalCreateRequest {
+  target_identifier: string;
+  target_type?: 'human' | 'agent';
+  description?: string;
+  notify_threshold?: number;
+  max_hops?: number;
+}
+
+export interface ConnectionGoalResponse {
+  goal_id: string;
+  source_agent_id: string;
+  target_identifier: string;
+  created_at: string;
+  expires_at: string;
+  initial_score: ReadinessScore;
+  notify_threshold: number | null;
+  stale: boolean;
+}
+
+export interface ConnectionGoalSummary {
+  goal_id: string;
+  target_identifier: string;
+  current_score: number;
+  notify_threshold: number | null;
+  stale: boolean;
+  expires_at: string;
+  last_scored_at: string;
+  created_at: string;
+}
+
+export interface TargetingGoalInfo {
+  goal_id: string;
+  source_agent_id: string;
+  created_at: string;
+  expires_at: string;
+}

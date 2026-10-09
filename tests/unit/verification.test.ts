@@ -19,7 +19,12 @@ vi.mock('../../src/crypto/keys', () => {
   };
 });
 
-import { VerificationService } from '../../src/services/verification';
+import { VerificationService, _challenges } from '../../src/services/verification';
+
+/** Helper: get the stored cognitive answer for a challenge */
+function getCognitiveAnswer(challengeId: string): string {
+  return _challenges.get(challengeId)!.cognitive_answer;
+}
 
 describe('VerificationService', () => {
   let service: VerificationService;
@@ -41,11 +46,15 @@ describe('VerificationService', () => {
       expect(challenge).toHaveProperty('nonce');
       expect(challenge).toHaveProperty('difficulty');
       expect(challenge).toHaveProperty('timestamp');
+      expect(challenge).toHaveProperty('cognitive_challenge');
+      expect(challenge.cognitive_challenge).toHaveProperty('text');
+      expect(challenge.cognitive_challenge).toHaveProperty('instructions');
 
       expect(typeof challenge.challenge_id).toBe('string');
       expect(typeof challenge.nonce).toBe('string');
       expect(typeof challenge.difficulty).toBe('number');
       expect(typeof challenge.timestamp).toBe('string');
+      expect(typeof challenge.cognitive_challenge.text).toBe('string');
     });
 
     it('generates unique challenge IDs', () => {
@@ -67,11 +76,36 @@ describe('VerificationService', () => {
   });
 
   describe('verifySolution()', () => {
-    it('accepts correct proof-of-work solution', () => {
+    it('accepts correct proof-of-work + cognitive solution', () => {
       vi.useRealTimers(); // Need real timers for crypto
       const challenge = service.generateChallenge();
+      const cognitiveAnswer = getCognitiveAnswer(challenge.challenge_id);
 
-      // Solve the challenge
+      // Solve the proof-of-work
+      const prefix = '0'.repeat(challenge.difficulty);
+      let solution = '';
+      for (let i = 0; i < 10_000_000; i++) {
+        const candidate = i.toString();
+        const hash = crypto
+          .createHash('sha256')
+          .update(challenge.nonce + candidate)
+          .digest('hex');
+        if (hash.startsWith(prefix)) {
+          solution = candidate;
+          break;
+        }
+      }
+
+      const result = service.verifySolution(challenge.challenge_id, solution, cognitiveAnswer);
+      expect(result.valid).toBe(true);
+      expect(result.token).toBeDefined();
+      expect(typeof result.token).toBe('string');
+    });
+
+    it('rejects valid PoW without cognitive answer', () => {
+      vi.useRealTimers();
+      const challenge = service.generateChallenge();
+
       const prefix = '0'.repeat(challenge.difficulty);
       let solution = '';
       for (let i = 0; i < 10_000_000; i++) {
@@ -87,9 +121,8 @@ describe('VerificationService', () => {
       }
 
       const result = service.verifySolution(challenge.challenge_id, solution);
-      expect(result.valid).toBe(true);
-      expect(result.token).toBeDefined();
-      expect(typeof result.token).toBe('string');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('cognitive_answer');
     });
 
     it('rejects incorrect solution', () => {
@@ -101,15 +134,15 @@ describe('VerificationService', () => {
       expect(result.error).toBe('Invalid proof-of-work');
     });
 
-    it('rejects expired challenge (>30s TTL)', () => {
+    it('rejects expired challenge (>60s TTL)', () => {
       // Use fake timers to simulate expiry
       const now = Date.now();
       vi.setSystemTime(now);
 
       const challenge = service.generateChallenge();
 
-      // Advance time past 30s TTL
-      vi.setSystemTime(now + 31_000);
+      // Advance time past 60s TTL
+      vi.setSystemTime(now + 61_000);
 
       const result = service.verifySolution(challenge.challenge_id, 'anything');
       expect(result.valid).toBe(false);
@@ -119,6 +152,7 @@ describe('VerificationService', () => {
     it('rejects reused challenge (single use)', () => {
       vi.useRealTimers();
       const challenge = service.generateChallenge();
+      const cognitiveAnswer = getCognitiveAnswer(challenge.challenge_id);
 
       // Solve it
       const prefix = '0'.repeat(challenge.difficulty);
@@ -136,11 +170,11 @@ describe('VerificationService', () => {
       }
 
       // First verification succeeds
-      const result1 = service.verifySolution(challenge.challenge_id, solution);
+      const result1 = service.verifySolution(challenge.challenge_id, solution, cognitiveAnswer);
       expect(result1.valid).toBe(true);
 
       // Second attempt fails (challenge consumed)
-      const result2 = service.verifySolution(challenge.challenge_id, solution);
+      const result2 = service.verifySolution(challenge.challenge_id, solution, cognitiveAnswer);
       expect(result2.valid).toBe(false);
       expect(result2.error).toBe('Challenge not found or expired');
     });
@@ -156,6 +190,7 @@ describe('VerificationService', () => {
     it('accepts a valid token', () => {
       vi.useRealTimers();
       const challenge = service.generateChallenge();
+      const cognitiveAnswer = getCognitiveAnswer(challenge.challenge_id);
 
       // Solve the challenge
       const prefix = '0'.repeat(challenge.difficulty);
@@ -172,7 +207,7 @@ describe('VerificationService', () => {
         }
       }
 
-      const verifyResult = service.verifySolution(challenge.challenge_id, solution);
+      const verifyResult = service.verifySolution(challenge.challenge_id, solution, cognitiveAnswer);
       expect(verifyResult.valid).toBe(true);
 
       const tokenResult = service.validateToken(verifyResult.token!);

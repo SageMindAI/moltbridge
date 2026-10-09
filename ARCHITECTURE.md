@@ -113,6 +113,26 @@ trust_score = 0.17 * import_score
 
 Cross-verification dominates intentionally: it requires multiple independent agents to confirm claims, making trust score manipulation expensive.
 
+### Pre-Escrow Trust Gate (PROP-881)
+
+`trust_score` above answers "what do others declare about this agent?" The gate answers a different question at a different moment: "how has this counterparty actually behaved, and should an economic handoff begin?"
+
+It is a separate decision point rather than a fifth weight in the formula, for three reasons:
+
+1. **Different signal.** The gate reads `OutcomeService` — resolved introductions, dispute rate, coordination anomalies — not attestation edges. Folding behaviour into the formula would average it against declaration; the convergent finding from five harvest cycles is that behaviour should *govern*, not be averaged.
+2. **Different output.** A score cannot say "I could not measure this." The gate returns a decision (`allow` / `review` / `deny`) alongside an `evidence_basis` (`behavioral` / `declared_only` / `none`) and reason codes, so insufficient evidence is a distinct answer rather than a low number indistinguishable from a bad record.
+3. **Different consumer.** A score is read; a gate acts. It refuses at `POST /outcomes` before any record is created.
+
+Implementation: `src/services/pre-escrow.ts`. It depends on a narrow structural interface (`OutcomeHistorySource`) rather than on `OutcomeService` directly, so the decision logic is unit-testable against fixtures without a graph or a server.
+
+Design notes worth preserving:
+
+- **Wilson 95% lower bound, not a raw success ratio.** A 1-of-1 record scores ~0.21 and a perfect 3-of-3 scores ~0.44. A naive ratio hands a single self-dealt introduction a perfect score, which is the precise attack the gate exists to stop.
+- **Structural flags block on sight; rate flags need prevalence.** `ring_pattern` and `requester_broker_same_ip` are shapes that do not occur by accident. `instant_sync` and `velocity_spike` describe timing and volume, and for automated agents a single occurrence is ordinary — both sides of a well-built A2A integration confirm within seconds. Rate flags therefore block only at or above `collusion_rate_threshold` of the agent's outcomes, and only once the record is thick enough to judge.
+- **An override does not rewrite the decision.** It sets `allowed: true` and `overridden: true` while `decision` keeps its blocking value, and it requires a stated reason. An escape hatch that launders the verdict into a clean pass leaves no trace of the risk that was accepted.
+- **Enforcement defaults on.** `MOLTBRIDGE_PRE_ESCROW_ENFORCE=false` is a break-glass, and the resulting state is reported by `GET /status` and `GET /trust/pre-escrow/policy` so an off gate is observable rather than silent.
+- **The decision log has a consumer.** Every assessment appends to `data/pre-escrow-decisions.jsonl` and feeds `GET /trust/pre-escrow/stats`, which flags a zero block rate as a suspect input rather than presenting it as health.
+
 ## Authentication Flow
 
 ```
@@ -239,9 +259,9 @@ Phase 1 runs locally with zero hosting cost. Cloudflare Tunnel provides TLS and 
 
 ## Test Coverage
 
-- **471 core tests** across 21 test files (88%+ line coverage)
-- **57 TypeScript SDK tests** across 3 files
-- **24 Python SDK tests** across 2 files
+- **630 core tests** across 27 test files
+- **64 TypeScript SDK tests** across 3 files
+- **31 Python SDK tests** across 2 files
 - Unit tests mock Neo4j driver for fast execution
 - Integration tests use supertest against the Express app
 

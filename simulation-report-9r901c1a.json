@@ -1,0 +1,492 @@
+{
+  "run_id": "9r901c1a",
+  "base_url": "https://api.moltbridge.ai",
+  "timestamp": "2026-02-15T10:21:32Z",
+  "agent_count": 10,
+  "total_tests": 78,
+  "passed": 78,
+  "failed": 0,
+  "duration_seconds": 61.5,
+  "results": [
+    {
+      "test": "health-check",
+      "passed": true,
+      "message": "API healthy, Neo4j connected, uptime=1015s",
+      "duration_ms": 588
+    },
+    {
+      "test": "register-research-assistant",
+      "passed": true,
+      "message": "ResearchBot Alpha (sim-9r901c1a-00) trust=0",
+      "duration_ms": 609
+    },
+    {
+      "test": "register-sales-agent",
+      "passed": true,
+      "message": "DealMaker Pro (sim-9r901c1a-01) trust=0",
+      "duration_ms": 461
+    },
+    {
+      "test": "register-coding-assistant",
+      "passed": true,
+      "message": "CodeReview Agent (sim-9r901c1a-02) trust=0",
+      "duration_ms": 500
+    },
+    {
+      "test": "register-recruiter",
+      "passed": true,
+      "message": "TalentScout AI (sim-9r901c1a-03) trust=0",
+      "duration_ms": 891
+    },
+    {
+      "test": "register-investment-analyst",
+      "passed": true,
+      "message": "AlphaSeek Agent (sim-9r901c1a-04) trust=0",
+      "duration_ms": 554
+    },
+    {
+      "test": "register-customer-support",
+      "passed": true,
+      "message": "HelpDesk Prime (sim-9r901c1a-05) trust=0",
+      "duration_ms": 433
+    },
+    {
+      "test": "register-content-creator",
+      "passed": true,
+      "message": "ContentForge AI (sim-9r901c1a-06) trust=0",
+      "duration_ms": 917
+    },
+    {
+      "test": "register-data-engineer",
+      "passed": true,
+      "message": "PipelineBot (sim-9r901c1a-07) trust=0",
+      "duration_ms": 514
+    },
+    {
+      "test": "register-legal-assistant",
+      "passed": true,
+      "message": "LegalEagle AI (sim-9r901c1a-08) trust=0",
+      "duration_ms": 537
+    },
+    {
+      "test": "register-connector",
+      "passed": true,
+      "message": "NetworkWeaver (sim-9r901c1a-09) trust=0",
+      "duration_ms": 970
+    },
+    {
+      "test": "profile-research-assistant",
+      "passed": true,
+      "message": "Updated research-assistant with simulation-tested capability",
+      "duration_ms": 223
+    },
+    {
+      "test": "principal-research-assistant",
+      "passed": true,
+      "message": "Onboarded principal: academic-research/research-lead",
+      "duration_ms": 487
+    },
+    {
+      "test": "profile-sales-agent",
+      "passed": true,
+      "message": "Updated sales-agent with simulation-tested capability",
+      "duration_ms": 232
+    },
+    {
+      "test": "principal-sales-agent",
+      "passed": true,
+      "message": "Onboarded principal: saas/head-of-sales",
+      "duration_ms": 468
+    },
+    {
+      "test": "profile-coding-assistant",
+      "passed": true,
+      "message": "Updated coding-assistant with simulation-tested capability",
+      "duration_ms": 215
+    },
+    {
+      "test": "principal-coding-assistant",
+      "passed": true,
+      "message": "Onboarded principal: software-engineering/engineering-manager",
+      "duration_ms": 477
+    },
+    {
+      "test": "profile-recruiter",
+      "passed": true,
+      "message": "Updated recruiter with simulation-tested capability",
+      "duration_ms": 223
+    },
+    {
+      "test": "principal-recruiter",
+      "passed": true,
+      "message": "Onboarded principal: recruiting/talent-acquisition-lead",
+      "duration_ms": 441
+    },
+    {
+      "test": "profile-investment-analyst",
+      "passed": true,
+      "message": "Updated investment-analyst with simulation-tested capability",
+      "duration_ms": 203
+    },
+    {
+      "test": "principal-investment-analyst",
+      "passed": true,
+      "message": "Onboarded principal: venture-capital/analyst",
+      "duration_ms": 538
+    },
+    {
+      "test": "profile-customer-support",
+      "passed": true,
+      "message": "Updated customer-support with simulation-tested capability",
+      "duration_ms": 222
+    },
+    {
+      "test": "profile-content-creator",
+      "passed": true,
+      "message": "Updated content-creator with simulation-tested capability",
+      "duration_ms": 211
+    },
+    {
+      "test": "principal-content-creator",
+      "passed": true,
+      "message": "Onboarded principal: marketing/content-director",
+      "duration_ms": 454
+    },
+    {
+      "test": "profile-data-engineer",
+      "passed": true,
+      "message": "Updated data-engineer with simulation-tested capability",
+      "duration_ms": 237
+    },
+    {
+      "test": "profile-legal-assistant",
+      "passed": true,
+      "message": "Updated legal-assistant with simulation-tested capability",
+      "duration_ms": 224
+    },
+    {
+      "test": "principal-legal-assistant",
+      "passed": true,
+      "message": "Onboarded principal: legal-tech/general-counsel",
+      "duration_ms": 498
+    },
+    {
+      "test": "profile-connector",
+      "passed": true,
+      "message": "Updated connector with simulation-tested capability",
+      "duration_ms": 220
+    },
+    {
+      "test": "principal-connector",
+      "passed": true,
+      "message": "Onboarded principal: professional-networking/community-builder",
+      "duration_ms": 515
+    },
+    {
+      "test": "discover-cap-crm",
+      "passed": true,
+      "message": "Found 1 agents with 'crm'",
+      "duration_ms": 257
+    },
+    {
+      "test": "discover-cap-code-review",
+      "passed": true,
+      "message": "Found 1 agents with 'code-review'",
+      "duration_ms": 165
+    },
+    {
+      "test": "discover-cap-financial-analysis",
+      "passed": true,
+      "message": "Found 1 agents with 'financial-analysis'",
+      "duration_ms": 159
+    },
+    {
+      "test": "discover-cap-networking",
+      "passed": true,
+      "message": "Found 7 agents with 'networking'",
+      "duration_ms": 172
+    },
+    {
+      "test": "discover-broker-research-assistant->connector",
+      "passed": true,
+      "message": "path_found=False (research-assistant -> connector)",
+      "duration_ms": 420
+    },
+    {
+      "test": "discover-broker-sales-agent->legal-assistant",
+      "passed": true,
+      "message": "path_found=False (sales-agent -> legal-assistant)",
+      "duration_ms": 454
+    },
+    {
+      "test": "discover-broker-coding-assistant->data-engineer",
+      "passed": true,
+      "message": "path_found=False (coding-assistant -> data-engineer)",
+      "duration_ms": 372
+    },
+    {
+      "test": "attest-research-assistant->connector",
+      "passed": true,
+      "message": "research-assistant->connector (INTERACTION, conf=0.9) new_trust=0.1525",
+      "duration_ms": 493
+    },
+    {
+      "test": "attest-connector->research-assistant",
+      "passed": true,
+      "message": "connector->research-assistant (INTERACTION, conf=0.85) new_trust=0.2685",
+      "duration_ms": 507
+    },
+    {
+      "test": "attest-sales-agent->investment-analyst",
+      "passed": true,
+      "message": "sales-agent->investment-analyst (INTERACTION, conf=0.8) new_trust=0.1525",
+      "duration_ms": 475
+    },
+    {
+      "test": "attest-investment-analyst->sales-agent",
+      "passed": true,
+      "message": "investment-analyst->sales-agent (CAPABILITY, conf=0.75) new_trust=0.2685",
+      "duration_ms": 922
+    },
+    {
+      "test": "attest-coding-assistant->data-engineer",
+      "passed": true,
+      "message": "coding-assistant->data-engineer (CAPABILITY, conf=0.9) new_trust=0.1525",
+      "duration_ms": 428
+    },
+    {
+      "test": "attest-recruiter->content-creator",
+      "passed": true,
+      "message": "recruiter->content-creator (INTERACTION, conf=0.7) new_trust=0.1525",
+      "duration_ms": 478
+    },
+    {
+      "test": "attest-connector->investment-analyst",
+      "passed": true,
+      "message": "connector->investment-analyst (INTERACTION, conf=0.95) new_trust=0.5255",
+      "duration_ms": 407
+    },
+    {
+      "test": "attest-connector->sales-agent",
+      "passed": true,
+      "message": "connector->sales-agent (INTERACTION, conf=0.8) new_trust=0.5255",
+      "duration_ms": 400
+    },
+    {
+      "test": "attest-connector->recruiter",
+      "passed": true,
+      "message": "connector->recruiter (INTERACTION, conf=0.85) new_trust=0.1525",
+      "duration_ms": 407
+    },
+    {
+      "test": "attest-legal-assistant->coding-assistant",
+      "passed": true,
+      "message": "legal-assistant->coding-assistant (CAPABILITY, conf=0.8) new_trust=0.1525",
+      "duration_ms": 468
+    },
+    {
+      "test": "attest-customer-support->content-creator",
+      "passed": true,
+      "message": "customer-support->content-creator (INTERACTION, conf=0.7) new_trust=0.4095",
+      "duration_ms": 445
+    },
+    {
+      "test": "credibility-connector->research",
+      "passed": true,
+      "message": "packet_len=893, expires=2592000s",
+      "duration_ms": 224
+    },
+    {
+      "test": "credibility-research->connector",
+      "passed": true,
+      "message": "packet_len=865",
+      "duration_ms": 218
+    },
+    {
+      "test": "outcome-create",
+      "passed": true,
+      "message": "outcome created: intro-9r901c1a-001",
+      "duration_ms": 106
+    },
+    {
+      "test": "outcome-report-requester",
+      "passed": true,
+      "message": "requester reported: submitted",
+      "duration_ms": 100
+    },
+    {
+      "test": "outcome-report-target",
+      "passed": true,
+      "message": "target reported: submitted",
+      "duration_ms": 100
+    },
+    {
+      "test": "outcome-pending",
+      "passed": true,
+      "message": "0 pending outcomes",
+      "duration_ms": 104
+    },
+    {
+      "test": "outcome-stats",
+      "passed": true,
+      "message": "stats: {\"stats\": {\"total\": 1, \"successful\": 1, \"failed\": 0, \"disputed\": 0, \"pending\": 0, \"success_rate\": 1, \"anomaly_count\": 1}}",
+      "duration_ms": 110
+    },
+    {
+      "test": "iqs-evaluate",
+      "passed": true,
+      "message": "band=medium, recommendation=This introduction has moderate potential. Additional attestations or shared cont",
+      "duration_ms": 155
+    },
+    {
+      "test": "consent-status",
+      "passed": true,
+      "message": "purposes: ['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience']",
+      "duration_ms": 121
+    },
+    {
+      "test": "consent-withdraw",
+      "passed": true,
+      "message": "withdrawn: data_sharing, granted=False",
+      "duration_ms": 109
+    },
+    {
+      "test": "consent-grant",
+      "passed": true,
+      "message": "re-granted: data_sharing, granted=True",
+      "duration_ms": 104
+    },
+    {
+      "test": "consent-export",
+      "passed": true,
+      "message": "exported: 2006 bytes",
+      "duration_ms": 106
+    },
+    {
+      "test": "payment-account-research-assistant",
+      "passed": true,
+      "message": "account created (founding tier)",
+      "duration_ms": 123
+    },
+    {
+      "test": "payment-account-sales-agent",
+      "passed": true,
+      "message": "account created (standard tier)",
+      "duration_ms": 158
+    },
+    {
+      "test": "payment-account-coding-assistant",
+      "passed": true,
+      "message": "account created (standard tier)",
+      "duration_ms": 106
+    },
+    {
+      "test": "payment-deposit",
+      "passed": true,
+      "message": "deposited $100, balance=$100",
+      "duration_ms": 109
+    },
+    {
+      "test": "payment-balance",
+      "passed": true,
+      "message": "balance=$100, tier=founding",
+      "duration_ms": 108
+    },
+    {
+      "test": "payment-history",
+      "passed": true,
+      "message": "1 transactions",
+      "duration_ms": 115
+    },
+    {
+      "test": "payment-pricing",
+      "passed": true,
+      "message": "pricing: {\"broker_discovery\": 0.05, \"capability_match\": 0.02, \"credibility_packet\": 0.1, \"introduction_fee\": 1}",
+      "duration_ms": 44
+    },
+    {
+      "test": "webhook-register",
+      "passed": true,
+      "message": "registered: https://example.com/webhooks/sim-9r901c1a-00, events=['outcome_reported', 'trust_score_changed']",
+      "duration_ms": 112
+    },
+    {
+      "test": "webhook-list",
+      "passed": true,
+      "message": "1 webhooks registered",
+      "duration_ms": 118
+    },
+    {
+      "test": "webhook-unregister",
+      "passed": true,
+      "message": "removed: True",
+      "duration_ms": 121
+    },
+    {
+      "test": "feedback-bug",
+      "passed": true,
+      "message": "ticket=FB-006, status=open, priority=high",
+      "duration_ms": 119
+    },
+    {
+      "test": "feedback-feature",
+      "passed": true,
+      "message": "ticket=FR-007, votes=1",
+      "duration_ms": 101
+    },
+    {
+      "test": "feedback-vote",
+      "passed": true,
+      "message": "votes after: 2",
+      "duration_ms": 104
+    },
+    {
+      "test": "feedback-comment",
+      "passed": true,
+      "message": "comment_id=C-003",
+      "duration_ms": 109
+    },
+    {
+      "test": "feedback-list",
+      "passed": true,
+      "message": "2 tickets",
+      "duration_ms": 109
+    },
+    {
+      "test": "feedback-quality",
+      "passed": true,
+      "message": "quality=1, trust_adj=0.02",
+      "duration_ms": 111
+    },
+    {
+      "test": "post-trust-broker",
+      "passed": true,
+      "message": "path_found=False (connector -> research)",
+      "duration_ms": 359
+    },
+    {
+      "test": "post-trust-capability",
+      "passed": true,
+      "message": "Found 7 agents with networking + trust>=0.1",
+      "duration_ms": 239
+    },
+    {
+      "test": "gdpr-erase",
+      "passed": true,
+      "message": "erased=True",
+      "duration_ms": 148
+    }
+  ],
+  "agent_ids": [
+    "sim-9r901c1a-00",
+    "sim-9r901c1a-01",
+    "sim-9r901c1a-02",
+    "sim-9r901c1a-03",
+    "sim-9r901c1a-04",
+    "sim-9r901c1a-05",
+    "sim-9r901c1a-06",
+    "sim-9r901c1a-07",
+    "sim-9r901c1a-08",
+    "sim-9r901c1a-09"
+  ]
+}

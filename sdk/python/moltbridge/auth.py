@@ -16,6 +16,45 @@ from base64 import urlsafe_b64encode
 from nacl.signing import SigningKey
 
 
+class _JSCompatEncoder(json.JSONEncoder):
+    """JSON encoder that matches JavaScript's number serialization.
+
+    JS: String(0.0) → "0", String(10.0) → "10", String(0.5) → "0.5"
+    Python: json.dumps(0.0) → "0.0", json.dumps(10.0) → "10.0"
+
+    The server uses JS canonicalization, so we must match it.
+    """
+
+    def default(self, o: object) -> object:
+        return super().default(o)
+
+    def encode(self, o: object) -> str:
+        return self._normalize(o)
+
+    def _normalize(self, o: object) -> str:
+        if isinstance(o, bool):
+            return "true" if o else "false"
+        if isinstance(o, float):
+            if o == int(o) and not (o != o):  # not NaN
+                return str(int(o))
+            return repr(o)
+        if isinstance(o, int):
+            return str(o)
+        if isinstance(o, str):
+            return json.dumps(o)
+        if o is None:
+            return "null"
+        if isinstance(o, list):
+            return "[" + ",".join(self._normalize(item) for item in o) + "]"
+        if isinstance(o, dict):
+            items = sorted(o.items())
+            return "{" + ",".join(
+                json.dumps(k) + ":" + self._normalize(v)
+                for k, v in items
+            ) + "}"
+        return json.dumps(o)
+
+
 class Ed25519Signer:
     """Handles Ed25519 request signing."""
 
@@ -63,10 +102,13 @@ class Ed25519Signer:
         """
         timestamp = str(int(time.time()))
 
-        body_str = json.dumps(body, separators=(",", ":"), sort_keys=True) if body else ""
+        body_str = json.dumps(body, separators=(",", ":"), sort_keys=True, cls=_JSCompatEncoder) if body else ""
         body_hash = hashlib.sha256(body_str.encode()).hexdigest()
 
-        message = f"{method}:{path}:{timestamp}:{body_hash}"
+        # Strip query string — server signs req.path (no query params)
+        sign_path = path.split("?")[0]
+
+        message = f"{method}:{sign_path}:{timestamp}:{body_hash}"
         signed = self._key.sign(message.encode())
         signature = urlsafe_b64encode(signed.signature).rstrip(b"=").decode("ascii")
 

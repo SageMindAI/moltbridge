@@ -250,8 +250,8 @@ describe('ConsentService', () => {
   });
 
   describe('Constants', () => {
-    it('CONSENT_PURPOSES has all 4 purposes', () => {
-      expect(CONSENT_PURPOSES).toEqual(['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience']);
+    it('CONSENT_PURPOSES has all 5 purposes', () => {
+      expect(CONSENT_PURPOSES).toEqual(['iqs_scoring', 'data_sharing', 'profiling', 'operational_omniscience', 'goal_targeting']);
     });
 
     it('CONSENT_DESCRIPTIONS has description for each purpose', () => {

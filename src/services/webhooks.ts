@@ -20,7 +20,8 @@ export type WebhookEventType =
   | 'attestation_received'
   | 'trust_score_changed'
   | 'outcome_reported'
-  | 'iqs_guidance';
+  | 'iqs_guidance'
+  | 'connection_goal_ready';
 
 export interface WebhookRegistration {
   agent_id: string;
@@ -49,6 +50,14 @@ export interface WebhookDelivery {
   next_retry_at: string | null;
   last_error: string | null;
   delivered_at: string | null;
+}
+
+// Singleton instance
+let _instance: WebhookService | null = null;
+
+export function getWebhookService(): WebhookService {
+  if (!_instance) _instance = new WebhookService();
+  return _instance;
 }
 
 export class WebhookService {

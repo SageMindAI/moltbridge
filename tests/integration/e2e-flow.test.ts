@@ -7,10 +7,14 @@
  * This test validates that all services work together correctly.
  */
 
+// Prevent hex-encoded env var from poisoning the Ed25519 key loader
+delete process.env.MOLTBRIDGE_SIGNING_KEY;
+
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { generateTestKeyPair, signRequest, solveChallenge } from '../helpers/crypto';
+import { _challenges } from '../../src/services/verification';
 
 // Mock Neo4j
 const mockSession = {
@@ -66,6 +70,13 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+
+  // Re-establish Neo4j module mocks cleared by vi.clearAllMocks()
+  mockDriver.session.mockReturnValue(mockSession);
+  const neo4j = await import('../../src/db/neo4j');
+  (neo4j.getDriver as any).mockReturnValue(mockDriver);
+  (neo4j.verifyConnectivity as any).mockResolvedValue(true);
+
   mockAuthBothAgents();
 
   const { clearReplayCache } = await import('../../src/middleware/auth');
@@ -94,10 +105,11 @@ describe('E2E Flow: Full Agent Lifecycle', () => {
 
     const { challenge_id, nonce, difficulty } = challengeRes.body;
     const solution = solveChallenge(nonce, difficulty);
+    const cognitiveAnswer = _challenges.get(challenge_id)!.cognitive_answer;
 
     const verifyRes = await request(app)
       .post('/verify')
-      .send({ challenge_id, proof_of_work: solution });
+      .send({ challenge_id, proof_of_work: solution, cognitive_answer: cognitiveAnswer });
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.verified).toBe(true);
     expect(verifyRes.body.token).toBeDefined();
@@ -344,10 +356,13 @@ describe('E2E Flow: Full Agent Lifecycle', () => {
       broker_id: 'broker-e2e',
       target_id: TARGET_ID,
     };
-    await request(app)
+    // PROP-881: assert the setup step. An unasserted create is how a 403 from
+    // the trust gate hid behind a downstream 400 the first time this ran.
+    const createRes = await request(app)
       .post('/outcomes')
       .set('Authorization', authFor(requesterKeyPair, REQUESTER_ID, 'POST', '/outcomes', createBody))
       .send(createBody);
+    expect(createRes.status).toBe(201);
 
     // 2. Requester reports success
     const reportBody1 = {

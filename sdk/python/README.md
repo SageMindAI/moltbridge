@@ -96,6 +96,9 @@ Set either to `False` to receive the full disclosure text from the API instead.
 | `credibility_packet()` | GET /credibility-packet | Generate proof JWT |
 | `attest()` | POST /attest | Submit attestation |
 | `report_outcome()` | POST /report-outcome | Report intro result |
+| `create_introduction()` | POST /outcomes | Register intro — trust-gated |
+| `verify_pre_escrow_trust()` | POST /trust/pre-escrow | Check a counterparty pre-handoff |
+| `pre_escrow_policy()` | GET /trust/pre-escrow/policy | Gate policy and enforcement state |
 | `evaluate_iqs()` | POST /iqs/evaluate | IQS quality band |
 | `consent_status()` | GET /consent | Get consent status |
 | `grant_consent()` | POST /consent/grant | Grant consent |
@@ -109,6 +112,62 @@ Set either to `False` to receive the full disclosure text from the API instead.
 | `register_webhook()` | POST /webhooks/register | Register webhook |
 | `list_webhooks()` | GET /webhooks | List webhooks |
 | `unregister_webhook()` | DELETE /webhooks/unregister | Remove webhook |
+
+## Pre-Escrow Trust Gate
+
+Check a counterparty before committing to an economic handoff. The primary signal is their own outcome record — resolved introductions, dispute rate, coordination anomalies — not what others declare about them.
+
+```python
+result = mb.verify_pre_escrow_trust("some-agent")
+assessment = result["assessment"]
+
+if not assessment["allowed"]:
+    print([r for r in assessment["reasons"] if r["blocking"]])
+```
+
+`evidence_basis` tells you what the answer rests on, and it matters more than the decision:
+
+| `evidence_basis` | Meaning |
+|------------------|---------|
+| `behavioral` | Judged on their transaction history. A real verdict. |
+| `declared_only` | No transaction history. Attestations alone. |
+| `none` | Nothing is known for them or against them. |
+
+An `allow` on `none` is **not** a verified pass. If you would rather hold than guess:
+
+```python
+mb.verify_pre_escrow_trust(
+    "some-agent",
+    trust_policy={"require_evidence": True, "min_declared_trust": 0.5},
+)
+```
+
+The same gate enforces when you register the introduction. A refused handoff raises `MoltBridgeError` with code `TRUST_GATE_BLOCKED` and creates no record:
+
+```python
+result = mb.create_introduction(
+    introduction_id="intro-002",
+    requester_id=mb.agent_id,
+    broker_id="broker-001",
+    target_id="target-001",
+)
+print(result["gate"]["decision"])  # both target and broker are judged
+```
+
+To proceed despite a block, name the counterparty and state a reason of at least 8 characters. The handoff goes through, but `decision` keeps its blocking value and the assessment is marked `overridden`:
+
+```python
+mb.create_introduction(
+    introduction_id="intro-003",
+    requester_id=mb.agent_id,
+    broker_id="broker-001",
+    target_id="flagged-agent",
+    trust_override=[{
+        "counterparty_agent_id": "flagged-agent",
+        "reason": "prior off-network relationship, accepting the risk",
+    }],
+)
+```
 
 ## Error Handling
 

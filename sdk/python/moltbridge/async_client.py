@@ -19,7 +19,7 @@ import asyncio
 import hashlib
 import os
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import httpx
 
@@ -355,6 +355,61 @@ class AsyncMoltBridge:
         return await self._request("POST", "/report-outcome", body={
             "introduction_id": introduction_id, "status": status, "evidence_type": evidence_type,
         })
+
+    async def create_introduction(
+        self,
+        introduction_id: str,
+        requester_id: str,
+        broker_id: str,
+        target_id: str,
+        trust_policy: Optional[dict] = None,
+        trust_override: Optional[Union[dict, list[dict]]] = None,
+    ) -> dict:
+        """Register an introduction. The pre-escrow trust gate runs first and can
+        refuse the handoff (TRUST_GATE_BLOCKED), in which case no record is created."""
+        body: dict = {
+            "introduction_id": introduction_id,
+            "requester_id": requester_id,
+            "broker_id": broker_id,
+            "target_id": target_id,
+        }
+        if trust_policy is not None:
+            body["trust_policy"] = trust_policy
+        if trust_override is not None:
+            body["trust_override"] = trust_override
+        return await self._request("POST", "/outcomes", body=body)
+
+    # ========================
+    # Pre-Escrow Trust Gate (PROP-881)
+    # ========================
+
+    async def verify_pre_escrow_trust(
+        self,
+        counterparty_agent_id: str,
+        counterparty_role: Optional[str] = None,
+        introduction_id: Optional[str] = None,
+        trust_policy: Optional[dict] = None,
+        trust_override: Optional[Union[dict, list[dict]]] = None,
+    ) -> dict:
+        """Check a counterparty BEFORE committing to an economic handoff.
+
+        Evaluation only. Read ``assessment["allowed"]`` to decide whether to
+        proceed and ``assessment["evidence_basis"]`` to know what it rests on.
+        """
+        body: dict = {"counterparty_agent_id": counterparty_agent_id}
+        if counterparty_role is not None:
+            body["counterparty_role"] = counterparty_role
+        if introduction_id is not None:
+            body["introduction_id"] = introduction_id
+        if trust_policy is not None:
+            body["trust_policy"] = trust_policy
+        if trust_override is not None:
+            body["trust_override"] = trust_override
+        return await self._request("POST", "/trust/pre-escrow", body=body)
+
+    async def pre_escrow_policy(self) -> dict:
+        """The trust policy the gate applies, and which fields you may override."""
+        return await self._request("GET", "/trust/pre-escrow/policy", auth=False)
 
     # ========================
     # IQS

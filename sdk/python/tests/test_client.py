@@ -297,3 +297,149 @@ class TestClientLifecycle:
         )
         assert mb.public_key is not None
         assert len(mb.public_key) > 0
+
+
+class TestPreEscrowTrustGate:
+    """PROP-881 — pre-escrow trust verification."""
+
+    def test_verify_posts_counterparty_and_returns_assessment(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(
+                200,
+                json={
+                    "assessment": {
+                        "decision": "allow",
+                        "allowed": True,
+                        "evidence_basis": "none",
+                        "reasons": [
+                            {
+                                "code": "no_history_default_allow",
+                                "detail": "nothing known either way",
+                                "blocking": False,
+                            }
+                        ],
+                    },
+                    "enforcing": True,
+                    "note": "Evaluation only.",
+                },
+            )
+            result = mb.verify_pre_escrow_trust("other-agent")
+
+            assert result["assessment"]["decision"] == "allow"
+            assert result["assessment"]["evidence_basis"] == "none"
+            call = mock_req.call_args
+            assert call.args[0] == "POST"
+            assert call.args[1].endswith("/trust/pre-escrow")
+            assert call.kwargs["json"] == {
+                "counterparty_agent_id": "other-agent"
+            }
+
+    def test_verify_passes_policy_and_override(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(200, json={"assessment": {}, "enforcing": True})
+            mb.verify_pre_escrow_trust(
+                "other-agent",
+                counterparty_role="broker",
+                introduction_id="intro-7",
+                trust_policy={"require_evidence": True},
+                trust_override={
+                    "counterparty_agent_id": "other-agent",
+                    "reason": "accepted the risk knowingly",
+                },
+            )
+            body = mock_req.call_args.kwargs["json"]
+            assert body["counterparty_role"] == "broker"
+            assert body["introduction_id"] == "intro-7"
+            assert body["trust_policy"] == {"require_evidence": True}
+            assert body["trust_override"]["reason"] == "accepted the risk knowingly"
+
+    def test_verify_omits_fields_it_was_not_given(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(200, json={"assessment": {}, "enforcing": True})
+            mb.verify_pre_escrow_trust("other-agent")
+            body = mock_req.call_args.kwargs["json"]
+            assert "trust_policy" not in body
+            assert "trust_override" not in body
+            assert "counterparty_role" not in body
+
+    def test_policy_endpoint_sends_no_auth_header(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(
+                200,
+                json={
+                    "default_policy": {"min_resolved_outcomes": 3},
+                    "active_policy": {"min_resolved_outcomes": 3},
+                    "enforcing": True,
+                    "overridable_per_request": ["require_evidence"],
+                },
+            )
+            result = mb.pre_escrow_policy()
+            assert result["enforcing"] is True
+            assert result["default_policy"]["min_resolved_outcomes"] == 3
+            assert "Authorization" not in mock_req.call_args.kwargs["headers"]
+
+    def test_create_introduction_carries_the_gate_verdict(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(
+                201,
+                json={
+                    "outcome": {"introduction_id": "intro-1"},
+                    "gate": {"decision": "allow", "allowed": True, "assessments": []},
+                },
+            )
+            result = mb.create_introduction(
+                introduction_id="intro-1",
+                requester_id="test-agent-001",
+                broker_id="broker-1",
+                target_id="target-1",
+            )
+            assert result["gate"]["decision"] == "allow"
+            assert mock_req.call_args.kwargs["json"] == {
+                "introduction_id": "intro-1",
+                "requester_id": "test-agent-001",
+                "broker_id": "broker-1",
+                "target_id": "target-1",
+            }
+
+    def test_create_introduction_raises_when_the_gate_refuses(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(
+                403,
+                json={
+                    "error": {
+                        "code": "TRUST_GATE_BLOCKED",
+                        "message": "returned 'deny' for target 'bad-agent'",
+                        "status": 403,
+                    },
+                    "gate": {"decision": "deny", "allowed": False, "assessments": []},
+                },
+            )
+            with pytest.raises(MoltBridgeError):
+                mb.create_introduction(
+                    introduction_id="intro-2",
+                    requester_id="test-agent-001",
+                    broker_id="broker-1",
+                    target_id="bad-agent",
+                )
+
+    def test_create_introduction_sends_policy_and_override(self, mb: MoltBridge):
+        with patch.object(mb._client, "request") as mock_req:
+            mock_req.return_value = httpx.Response(
+                201, json={"outcome": {}, "gate": {"decision": "deny", "allowed": True}}
+            )
+            mb.create_introduction(
+                introduction_id="intro-3",
+                requester_id="test-agent-001",
+                broker_id="broker-1",
+                target_id="bad-agent",
+                trust_policy={"require_evidence": True},
+                trust_override=[
+                    {
+                        "counterparty_agent_id": "bad-agent",
+                        "reason": "prior off-network relationship",
+                    }
+                ],
+            )
+            body = mock_req.call_args.kwargs["json"]
+            assert body["trust_policy"] == {"require_evidence": True}
+            assert len(body["trust_override"]) == 1
